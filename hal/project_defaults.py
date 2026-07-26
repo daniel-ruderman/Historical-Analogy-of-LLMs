@@ -44,7 +44,7 @@ PROJECT_DEFAULTS: Dict[str, str] = {
     # --- models ------------------------------------------------------------
     # The generation model and the embedding model are configured
     # independently: changing one does not imply changing the other.
-    "LLM_MODEL": "gemini-2.5-flash",
+    "LLM_MODEL": "gemini-3.5-flash-lite",
     "EMBEDDING_MODEL": "gemini-embedding-001",
 
     # Per-role models are intentionally absent: each role falls back to
