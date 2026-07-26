@@ -1,4 +1,4 @@
-py examples/run_all_methods.py --smoke===============================================================================
+===============================================================================
 PROJECT_GUIDE.txt
 A practical guide to this repository -- read this first
 ===============================================================================
@@ -170,7 +170,7 @@ There are two places a setting can come from:
 
          PROJECT_DEFAULTS = {
              "LLM_PROVIDER":       "gemini",
-             "LLM_MODEL":          "gemini-2.5-flash",
+             "LLM_MODEL":          "gemini-3.5-flash-lite",
              "EMBEDDING_PROVIDER": "gemini",
              "EMBEDDING_MODEL":    "gemini-embedding-001",
              "REFINEMENT_ROUNDS":  "2",
@@ -260,7 +260,7 @@ holds NO real key -- the key line is deliberately left empty:
 
 Everything else in .env.example is COMMENTED OUT, like this:
 
-    # LLM_MODEL=gemini-2.5-flash
+    # LLM_MODEL=gemini-3.5-flash-lite
     # REFINEMENT_ROUNDS=2
 
 That is on purpose. Those lines are only there to show you what you COULD
@@ -288,9 +288,9 @@ CONCRETE EXAMPLE
 
 Suppose hal/project_defaults.py contains:
 
-    "LLM_MODEL": "gemini-2.5-flash",
+    "LLM_MODEL": "gemini-3.5-flash-lite",
 
-Then EVERYONE who pulls the repository uses gemini-2.5-flash. You and your
+Then EVERYONE who pulls the repository uses gemini-3.5-flash-lite. You and your
 partner are running the same experiment. Good.
 
 Now suppose you instead put this line in YOUR .env:
@@ -298,7 +298,7 @@ Now suppose you instead put this line in YOUR .env:
     LLM_MODEL=some-other-model
 
 Then ONLY YOUR COMPUTER uses that model. Your partner still uses
-gemini-2.5-flash, because .env is never pushed. If you forget about that line,
+gemini-3.5-flash-lite, because .env is never pushed. If you forget about that line,
 the two of you will silently be running different experiments and comparing
 incomparable results.
 
@@ -326,7 +326,7 @@ Edit this file:
 
 Find this line:
 
-    "LLM_MODEL": "gemini-2.5-flash",
+    "LLM_MODEL": "gemini-3.5-flash-lite",
 
 Change the value, save, then:
 
@@ -361,7 +361,7 @@ CURRENT DEFAULT
 ---------------
 
     LLM_PROVIDER      = gemini
-    LLM_MODEL         = gemini-2.5-flash
+    LLM_MODEL         = gemini-3.5-flash-lite
     EMBEDDING_PROVIDER= gemini
     EMBEDDING_MODEL   = gemini-embedding-001
 

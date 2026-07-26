@@ -345,7 +345,7 @@ test.
 | Variable | Tracked default | Meaning |
 |---|---|---|
 | `GEMINI_API_KEY` | *(none — secret, local `.env` only)* | your key |
-| `LLM_PROVIDER` / `LLM_MODEL` | `gemini` / `gemini-2.5-flash` | LLM for every role |
+| `LLM_PROVIDER` / `LLM_MODEL` | `gemini` / `gemini-3.5-flash-lite` | LLM for every role |
 | `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` | `gemini` / `gemini-embedding-001` | retrieval embeddings |
 | `EMBEDDING_DIMENSIONS` | *(SDK default)* | optional reduced dimensionality |
 | `SEARCH_PROVIDER` | `wikipedia` | agent tool backend |
@@ -359,7 +359,7 @@ test.
 | `CACHE_ENABLED` / `CACHE_DIR` | `true` / `.hal_cache` | on-disk caches |
 | `GEMINI_API_SURFACE` | `auto` | `auto` / `models` / `interactions` |
 
-> **Model names are configuration, not architecture.** `gemini-2.5-flash` is the current team
+> **Model names are configuration, not architecture.** `gemini-3.5-flash-lite` is the current team
 > default and it is written in exactly one place (`hal/project_defaults.py`); no algorithm file
 > mentions a model name. Gemini model availability and quotas change over time — check your
 > limits in AI Studio, and change the default for everyone by editing that one file and pushing.
@@ -372,9 +372,9 @@ Because the provider is orthogonal to the method, the planned experiment grid wo
 environment variables only — no tracked file and no algorithm changes:
 
 ```bash
-python examples/run_all_methods.py --methods direct_generation                      # gemini-2.5-flash (tracked default)
-LLM_MODEL=gemini-2.5-flash python examples/run_all_methods.py --methods direct_generation
-LLM_MODEL=gemini-2.5-flash python examples/run_all_methods.py --methods agentic
+python examples/run_all_methods.py --methods direct_generation                      # gemini-3.5-flash-lite (tracked default)
+LLM_MODEL=gemini-3.5-flash-lite python examples/run_all_methods.py --methods direct_generation
+LLM_MODEL=gemini-3.5-flash-lite python examples/run_all_methods.py --methods agentic
 ```
 
 The runner also accepts `--model NAME` / `--provider NAME`, which override the configuration for
@@ -399,7 +399,7 @@ that single run.
 2. **Create `.env`** — `cp .env.example .env`
 3. **Add your own `GEMINI_API_KEY`** to it
 
-That is all. Everything else — the LLM provider, `gemini-2.5-flash`, the embedding model, the
+That is all. Everything else — the LLM provider, `gemini-3.5-flash-lite`, the embedding model, the
 refinement rounds, the candidate counts, the temperatures — already comes from the tracked
 repository (`hal/project_defaults.py`), so both collaborators run the same configuration without
 coordinating anything by hand.
@@ -626,7 +626,7 @@ baselines, the MDS evaluation, the full agentic pipeline, the example runner and
 Still to do:
 
 - run the real Gemini smoke test once an API key is configured (see §9);
-- confirm the quota available for the team default (`gemini-2.5-flash`) before a full run;
+- confirm the quota available for the team default (`gemini-3.5-flash-lite`) before a full run;
 - full-dataset runs and MDS comparison of the baselines against our pipeline;
 - the human-evaluation protocol from the paper, if we replicate it;
 - the prediction-usefulness evaluation of §12;
