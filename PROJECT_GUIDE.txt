@@ -1,0 +1,861 @@
+===============================================================================
+PROJECT_GUIDE.txt
+A practical guide to this repository -- read this first
+===============================================================================
+
+This is the "how do I actually use this thing" document.
+It assumes you know some Python but nothing about this repository.
+
+If you want the research details (the metric formulas, the exact prompts, the
+comparison with the paper), read PROJECT.md instead. This file is the
+practical one.
+
+Everything below was checked against the code as it actually is, not against
+how it was planned.
+
+
+-------------------------------------------------------------------------------
+TABLE OF CONTENTS
+-------------------------------------------------------------------------------
+
+  A. What this project is
+  B. Folder structure
+  C. How configuration works
+  D. What ".env" is
+  E. What ".env.example" is
+  F. Project defaults vs .env  (the important distinction)
+  G. How to change the LLM model
+  H. API key setup (step by step)
+  I. How to run the project
+  J. The methods you can run
+  K. How the agentic pipeline works
+  L. Gemini API limits and 429 errors
+  M. Caching
+  N. Running tests
+  O. What Git shares and what it does not
+  P. Troubleshooting
+  Q. First-time setup checklist
+
+
+===============================================================================
+A. WHAT THIS PROJECT IS
+===============================================================================
+
+This repository started as a clone of the code for the research paper:
+
+    "Past Meets Present: Creating Historical Analogy with Large Language Models"
+    (Li et al.)
+
+"Historical analogy" means: given a present-day or unfamiliar event, find a past
+event that is genuinely similar, so the past one helps you understand the new
+one. The classic example is COVID-19 compared to the 1918 Spanish flu.
+
+A good analogy matches the DEEP structure of two events, not just their
+vocabulary. The paper describes an event with four dimensions:
+
+    Topic       - what kind of event is it?
+    Background  - what caused it / what conditions led to it?
+    Process     - how did it unfold?
+    Result      - what were the consequences?
+
+There are THREE kinds of code in this repository. Keep them straight:
+
+  1. ORIGINAL PAPER CODE            -> framework/ , evaluation.py
+     The authors' own implementation. We keep it exactly as it was so we can
+     always look at the reference. We do NOT modify it.
+
+  2. OUR RECREATED BASELINES        -> gemini_baselines/
+     The same six methods from the paper, re-implemented so they can run on any
+     model provider (Gemini by default) instead of only OpenAI. Same prompts,
+     same steps, same candidate counts. These exist so that comparisons are
+     fair -- we deliberately did NOT improve them.
+
+  3. OUR NEW AGENTIC PIPELINE       -> agentic_pipeline/
+     This is our actual contribution: multiple cooperating AI agents that
+     propose, criticise, challenge and rank historical analogies.
+
+The research question is: does the agentic approach produce better historical
+analogies than plain LLM prompting?
+
+
+===============================================================================
+B. FOLDER STRUCTURE
+===============================================================================
+
+Repository root: J:\Historical-Analogy-of-LLMs
+
+  framework/
+      The ORIGINAL paper implementation. Do not modify.
+      Kept for reference and comparison.
+
+  evaluation.py
+      The original paper's evaluation script. Also unmodified.
+
+  dataset/
+      The data, all in .jsonl format (one JSON object per line):
+        popular_analogy.jsonl   20 famous analogies that have a known
+                                "correct" answer (field: target_event)
+        general_analogy.jsonl   160 harder events with no single right answer
+        event_pool.jsonl        658 historical events; the "library" that the
+                                retrieval methods search through
+        similarity_embeddings-example.jsonl
+                                the authors' pre-computed OpenAI vectors
+
+  gemini_baselines/
+      OUR versions of the paper's six baseline methods, provider-neutral.
+      One file per method, plus:
+        prompts.py         the paper's prompts, copied word for word
+        evaluation_mds.py  our version of the paper's evaluation metric
+
+  agentic_pipeline/
+      OUR new method. One file per component:
+        generate_search_agent.py   proposes candidate analogies
+        critic_agent.py            finds weaknesses in each candidate
+        anti_analogy_agent.py      hunts for counterexamples
+        final_judge.py             ranks the candidates (NOT an agent)
+        final_summarizer.py        explains the winner
+        pipeline.py                wires them together + a command line
+        react.py                   the small "think -> search -> observe" loop
+        prompts.py                 our prompts
+
+  hal/
+      Shared plumbing used by everything above. "hal" = Historical Analogy Lab.
+      No research method lives here, only infrastructure:
+        config.py            reads settings, decides which model to use
+        project_defaults.py  THE SHARED PROJECT DEFAULTS (see section C/F)
+        providers/           talking to Gemini, to embeddings, to Wikipedia
+        schemas.py           the data structures passed between components
+        cache.py             saves expensive results to disk
+        retry.py             retries when the API is busy
+        wiki.py              Wikipedia lookups
+        json_utils.py        parsing messy JSON that an LLM produced
+
+  examples/
+      run_all_methods.py   the main script you will actually run
+
+  tests/
+      Automated tests. They use fake models, so they cost no API quota.
+
+  requirements_project.txt
+      The Python packages OUR code needs.
+
+  .env.example
+      TRACKED template file. Shows what you may put in .env. Contains no key.
+
+  .env
+      YOUR private local file. Holds your GEMINI_API_KEY.
+      NOT committed to Git. (See section D.)
+
+  .gitignore
+      Tells Git which files to ignore (.env, caches, IDE settings, ...).
+
+  PROJECT.md
+      The detailed research/technical documentation.
+
+  PROJECT_GUIDE.txt
+      This file.
+
+
+===============================================================================
+C. HOW CONFIGURATION WORKS
+===============================================================================
+
+Nothing in this project hardcodes a model name inside the algorithms. Which
+model gets used is a SETTING, so we can swap models without touching code.
+
+There are two places a setting can come from:
+
+  1. SHARED PROJECT DEFAULTS   ->  hal/project_defaults.py
+     This is a normal Python file that is COMMITTED to Git. It looks like:
+
+         PROJECT_DEFAULTS = {
+             "LLM_PROVIDER":       "gemini",
+             "LLM_MODEL":          "gemini-2.5-flash",
+             "EMBEDDING_PROVIDER": "gemini",
+             "EMBEDDING_MODEL":    "gemini-embedding-001",
+             "REFINEMENT_ROUNDS":  "2",
+             "MAX_CANDIDATES":     "8",
+             ...
+         }
+
+     Because this file is in Git, if you change a value here and push it, your
+     partner gets exactly the same value when they pull. This is where shared
+     research settings belong.
+
+  2. LOCAL OVERRIDES           ->  environment variables, or your .env file
+     These live only on one computer and are never shared.
+
+PRECEDENCE (which one wins):
+
+        your environment variable or .env
+                    |
+                    v   (if not set)
+        hal/project_defaults.py
+                    |
+                    v   (only if the key was deleted from there)
+        a fallback value inside hal/config.py
+
+In words: a local override always beats the shared default. If you set nothing
+locally, you get the shared project default. That is the normal case.
+
+If you are ever unsure where a value actually came from, ask the code:
+
+    py -c "from hal.config import config_source; print(config_source('LLM_MODEL'))"
+
+It prints one of:
+    env       -> it came from your environment or .env
+    project   -> it came from hal/project_defaults.py  (the usual answer)
+    fallback  -> it came from the hardcoded fallback in hal/config.py
+
+
+===============================================================================
+D. WHAT ".env" IS
+===============================================================================
+
+If you have not met ".env" files before:
+
+  * ".env" is just a PLAIN TEXT FILE. Nothing magic about it.
+  * The name is short for "environment".
+  * Each line is NAME=VALUE, for example:
+
+        GEMINI_API_KEY=abc123...
+
+  * Lines starting with "#" are comments and are ignored.
+  * When the project starts, it reads this file and treats each line as if you
+    had set that environment variable in your terminal.
+  * The file lives in the repository ROOT, next to PROJECT.md:
+
+        J:\Historical-Analogy-of-LLMs\.env
+
+WHY THE API KEY IS NOT WRITTEN DIRECTLY IN THE PYTHON CODE:
+
+  * It is a SECRET. Anyone with your key can spend your quota.
+  * Python files are committed to Git. If the key were in a .py file, it would
+    end up in the repository history and on GitHub -- effectively public.
+  * Each collaborator should use their OWN key, not share one.
+
+.env IS IGNORED BY GIT. There is a line ".env" in .gitignore, which tells Git
+"pretend this file does not exist". So:
+
+    your .env       stays on your computer
+    your partner's  stays on their computer
+
+Neither key is ever pushed. Do not remove that .gitignore line.
+
+Note the quotes rule: write the value plainly, no quotation marks:
+
+    GEMINI_API_KEY=abc123          <-- correct
+    GEMINI_API_KEY="abc123"        <-- do not do this
+
+
+===============================================================================
+E. WHAT ".env.example" IS
+===============================================================================
+
+.env.example IS committed to Git. It is a template and a piece of
+documentation. It shows which settings exist and what they are for, but it
+holds NO real key -- the key line is deliberately left empty:
+
+    GEMINI_API_KEY=
+
+Everything else in .env.example is COMMENTED OUT, like this:
+
+    # LLM_MODEL=gemini-2.5-flash
+    # REFINEMENT_ROUNDS=2
+
+That is on purpose. Those lines are only there to show you what you COULD
+override. You do NOT need to copy them into your .env to run the project,
+because the real values already come from hal/project_defaults.py.
+
+THE NORMAL WORKFLOW FOR A NEW COLLABORATOR:
+
+    1. Clone or pull the repository
+    2. Copy .env.example to .env
+    3. Put your own GEMINI_API_KEY into .env
+    4. Never commit .env
+
+That is the whole setup. Everything else arrives through Git.
+
+
+===============================================================================
+F. PROJECT DEFAULTS VS .env   (READ THIS ONE CAREFULLY)
+===============================================================================
+
+This is the distinction that is easy to get wrong.
+
+CONCRETE EXAMPLE
+----------------
+
+Suppose hal/project_defaults.py contains:
+
+    "LLM_MODEL": "gemini-2.5-flash",
+
+Then EVERYONE who pulls the repository uses gemini-2.5-flash. You and your
+partner are running the same experiment. Good.
+
+Now suppose you instead put this line in YOUR .env:
+
+    LLM_MODEL=some-other-model
+
+Then ONLY YOUR COMPUTER uses that model. Your partner still uses
+gemini-2.5-flash, because .env is never pushed. If you forget about that line,
+the two of you will silently be running different experiments and comparing
+incomparable results.
+
+THE RULE
+--------
+
+    Shared research settings   ->  hal/project_defaults.py   (tracked, pushed)
+    Secrets                    ->  .env                      (local only)
+    Temporary personal tests   ->  .env                      (local only)
+
+If you want your partner to receive a change, it must go in the tracked file.
+Putting a project-wide decision only in .env means your partner never gets it.
+
+
+===============================================================================
+G. HOW TO CHANGE THE LLM MODEL
+===============================================================================
+
+CASE 1 -- change the default for BOTH of you (the usual case)
+-------------------------------------------------------------
+
+Edit this file:
+
+    hal/project_defaults.py
+
+Find this line:
+
+    "LLM_MODEL": "gemini-2.5-flash",
+
+Change the value, save, then:
+
+    git add hal/project_defaults.py
+    git commit -m "Switch default model"
+    git push
+
+Your partner runs "git pull" and automatically gets the new model. No other
+file needs to change -- the model name appears in exactly this one place, and
+no algorithm file mentions a model name at all.
+
+CASE 2 -- try a different model only on YOUR machine
+-----------------------------------------------------
+
+Open .env and add a line:
+
+    LLM_MODEL=another-model-name
+
+Run whatever you want. When you are done, DELETE that line (or put a "#" in
+front of it to comment it out):
+
+    # LLM_MODEL=another-model-name
+
+and you are back to the shared default. Nothing was pushed, your partner is
+unaffected.
+
+There is also a one-off way that does not touch any file at all:
+
+    py examples/run_all_methods.py --model another-model-name --methods agentic
+
+CURRENT DEFAULT
+---------------
+
+    LLM_PROVIDER      = gemini
+    LLM_MODEL         = gemini-2.5-flash
+    EMBEDDING_PROVIDER= gemini
+    EMBEDDING_MODEL   = gemini-embedding-001
+
+THE EMBEDDING MODEL IS SEPARATE
+--------------------------------
+
+EMBEDDING_MODEL is a DIFFERENT setting from LLM_MODEL. Embeddings turn text
+into a list of numbers so the retrieval methods can measure similarity; that is
+a different job from generating text. Changing LLM_MODEL does NOT change
+EMBEDDING_MODEL, and it should not.
+
+PER-ROLE MODELS
+---------------
+
+Our pipeline has several roles. By default they ALL use LLM_MODEL:
+
+    GENERATOR_MODEL       Generate/Search agent
+    CRITIC_MODEL          Critic agent
+    ANTI_ANALOGY_MODEL    Anti-Analogy agent
+    JUDGE_MODEL           Final Judge
+    SUMMARIZER_MODEL      Final Summarizer
+    BASELINE_MODEL        the six baseline methods
+    EVALUATION_MODEL      the LLM-based part of the evaluation metric
+
+You normally never touch these. They exist so that later you can, for example,
+use a stronger model only for judging:
+
+    JUDGE_MODEL=some-stronger-model      (in .env, local only)
+
+or pin it for the whole team by adding it to hal/project_defaults.py.
+Any role you do not set simply inherits LLM_MODEL.
+
+
+===============================================================================
+H. API KEY SETUP  (step by step)
+===============================================================================
+
+You need a Google Gemini API key. Get one at:
+
+    https://aistudio.google.com/apikey
+
+Then:
+
+STEP 1 -- install the dependencies.
+On Windows, use "py -m pip" rather than a bare "pip":
+
+    py -m pip install -r requirements_project.txt
+
+STEP 2 -- copy the template to your own local file.
+In PowerShell / cmd:
+
+    copy .env.example .env
+
+In Git Bash:
+
+    cp .env.example .env
+
+STEP 3 -- open .env in PyCharm (it is in the repository root).
+
+STEP 4 -- find this line and paste your key after the "=":
+
+    GEMINI_API_KEY=YOUR_KEY_HERE
+
+No quotes, no spaces around the "=".
+
+STEP 5 -- save the file.
+
+STEP 6 -- never commit, screenshot, paste or share that key. It is yours alone.
+Git already ignores .env, so a normal "git add ." will not pick it up.
+
+You do not need to add anything else to .env. Every other setting has a shared
+default in the repository.
+
+
+===============================================================================
+I. HOW TO RUN THE PROJECT
+===============================================================================
+
+All commands are run from the repository root:
+
+    J:\Historical-Analogy-of-LLMs
+
+On Windows use "py". ("python" often is not on PATH, or opens the Microsoft
+Store.) Check yours with:  py --version
+
+--- 1. SEE ALL AVAILABLE OPTIONS ---------------------------------------------
+
+    py examples/run_all_methods.py --help
+
+--- 2. QUICK SMOKE TEST ------------------------------------------------------
+
+    py examples/run_all_methods.py --smoke
+
+WHAT "--smoke" MEANS:
+A "smoke test" is a quick check that the system basically works -- the name
+comes from electronics: switch it on and see whether smoke comes out. It is
+NOT a research run. --smoke deliberately shrinks everything to save time and
+API quota:
+
+    * uses only the first 40 events of the 658-event pool
+    * 1 refinement round instead of 2
+    * 3 candidate analogies instead of 8
+    * 1 search step per agent turn
+    * only reviews the top 2 candidates
+
+The answers it produces are therefore NOT the experiment results. Use it to
+confirm that your key works and nothing is broken.
+
+--- 3. RUN ONLY OUR AGENTIC PIPELINE, IN SMOKE MODE --------------------------
+
+    py examples/run_all_methods.py --methods agentic --dataset popular --index 0 --smoke
+
+This is the cheapest useful command and the one to use while developing.
+
+--- 4. RUN OUR AGENTIC PIPELINE NORMALLY (full settings) ---------------------
+
+    py examples/run_all_methods.py --methods agentic --dataset popular --index 0
+
+Same thing without --smoke: 2 refinement rounds, up to 8 candidates, and every
+candidate reviewed. This uses noticeably more API calls.
+
+There is also a dedicated runner that processes a whole dataset rather than one
+example, and writes the results to a file:
+
+    py -m agentic_pipeline.pipeline --dataset popular --rounds 2 --output agentic_output.jsonl
+
+--- 5. RUN ALL METHODS (six baselines + our pipeline) ------------------------
+
+    py examples/run_all_methods.py --dataset popular --index 0
+
+Warning: this runs seven methods on the same event, and the first run also has
+to embed the whole 658-event pool. Expect it to take a while and to use a lot
+of quota. To be explicit about a full run:
+
+    py examples/run_all_methods.py --full --dataset popular --index 0
+
+--- 6. CHOOSING THE DATASET --------------------------------------------------
+
+    --dataset popular     20 famous analogies WITH a known correct answer
+    --dataset general     160 harder events with NO single correct answer
+
+"popular" is better while testing, because the output prints the reference
+answer next to the model's answer so you can eyeball whether it is sensible.
+
+--- 7. CHOOSING WHICH EXAMPLE ------------------------------------------------
+
+    --index 0     the first event in that dataset (default)
+    --index 5     the sixth event
+    ...
+Valid range: 0-19 for popular, 0-159 for general.
+
+--- 8. OTHER USEFUL FLAGS ----------------------------------------------------
+
+    --methods baselines        only the six paper baselines
+    --methods direct_generation,agentic     a comma-separated subset
+    --rounds 1                 refinement rounds for our pipeline
+    --max-candidates 5         how many candidate analogies to propose
+    --model NAME               use a different model for this run only
+    --verbose                  print each agent's searches as they happen
+    --output results.jsonl     save all results to a file
+    --dry-run                  run with FAKE models: no API key, no internet,
+                               no quota used. Useful to check that the code
+                               runs. The answers are canned and meaningless.
+
+
+===============================================================================
+J. THE METHODS YOU CAN RUN
+===============================================================================
+
+SIX BASELINES FROM THE ORIGINAL PAPER (in gemini_baselines/):
+
+  direct_retrieval
+      Turn the input event and all 658 pool events into number vectors, pick
+      the most similar one. No LLM involved.
+
+  twostage_retrieval
+      Same, but take the top 10 most similar and let the LLM choose among them.
+
+  direct_generation
+      Just ask the LLM: "what past event is analogous to this?" One question,
+      one answer.
+
+  twostage_generation
+      Ask the LLM for 10 candidates, check each on Wikipedia (throwing away
+      invented events), then ask the LLM to pick the best one.
+
+  summary_generation      ("Generation with Summarizing")
+      First summarise every event into the four dimensions (topic, background,
+      process, result), then compare those structured summaries instead of raw
+      text.
+
+  reflection_generation   ("Self-Reflection")
+      The paper's strongest method. A generator proposes 5 candidates and a
+      reflector either accepts one or sends back feedback asking for a better
+      set. Repeats until it settles.
+
+OUR NEW METHOD (in agentic_pipeline/), run with --methods agentic:
+
+  Generate/Search agent   proposes 5-10 candidates, can search for evidence
+  Critic agent            scores each candidate and lists its weaknesses
+  Anti-Analogy agent      searches for counterexamples that break the analogy
+  (those three repeat for a few refinement rounds)
+  Final Judge             ranks the surviving candidates
+  Final Summarizer        explains the winning analogy in plain language
+
+
+===============================================================================
+K. HOW THE AGENTIC PIPELINE WORKS
+===============================================================================
+
+              Input event
+                   |
+                   v
+        +----------------------+
+        | Generate/Search      |   proposes 5-10 candidate analogies
+        | agent                |
+        +----------------------+
+                   |
+                   v
+            Candidate analogies
+                   |
+    +==============================================+
+    |          REFINEMENT LOOP (1-3 rounds)        |
+    |                                              |
+    |   Critic agent        -> what is weak here?  |
+    |   Anti-Analogy agent  -> what breaks this?   |
+    |            |                                 |
+    |            v                                 |
+    |        feedback                              |
+    |            |                                 |
+    |            v                                 |
+    |   Generate/Search agent                      |
+    |   keeps / revises / replaces candidates      |
+    +==============================================+
+                   |
+                   v
+        +----------------------+
+        | Final Judge          |   ranks the candidates
+        +----------------------+
+                   |
+                   v
+        +----------------------+
+        | Final Summarizer     |   explains the winner
+        +----------------------+
+
+IMPORTANT DISTINCTION:
+
+  The THREE AGENTS are:
+      Generate/Search
+      Critic
+      Anti-Analogy
+
+  They are "agents" because they can decide to use a tool: they search
+  Wikipedia, read the result, and update their answer. That loop is called
+  ReAct (Reason + Act) and lives in agentic_pipeline/react.py.
+
+  THE FINAL JUDGE IS NOT AN AGENT.
+  It has no tools and no search loop. It is a single ranking step that runs
+  once, after the refinement loop is finished. Do not call it a "judge agent".
+
+  The Final Summarizer is also not an agent -- it is one plain LLM call that
+  writes the explanation.
+
+WHY THE ANTI-ANALOGY AGENT EXISTS:
+An LLM asked for a historical analogy tends to defend its first idea. The
+Anti-Analogy agent's whole job is to attack it -- to find past cases that look
+similar but ended completely differently. That is what stops the system from
+producing a confident but misleading answer.
+
+
+===============================================================================
+L. GEMINI API LIMITS AND 429 ERRORS
+===============================================================================
+
+If you see something like:
+
+    429 RESOURCE_EXHAUSTED
+    ... quota ... rate limit ...
+
+that is NOT a bug in the code. It means Google's API refused the request
+because you have hit a usage limit -- either too many requests per minute, or
+your allowance for the day. The Python code is fine; the service said no.
+
+The project already handles short bursts: it waits and retries automatically,
+with an increasing pause between attempts. If it still fails after several
+tries, you have genuinely run out for now. Wait and try again later.
+
+WHY THIS HAPPENS FASTER THAN YOU EXPECT:
+Our agentic pipeline is not one API call. For a single input event it may make
+dozens: the generator proposes candidates, then the Critic examines EACH
+candidate, then the Anti-Analogy agent examines EACH candidate, and then it all
+repeats for the next refinement round, and finally the judge and the summarizer
+run. Running all seven methods multiplies that again.
+
+HOW TO USE LESS QUOTA WHILE DEVELOPING:
+
+    * add --smoke
+    * run one method at a time:  --methods agentic
+    * lower the work:            --rounds 1 --max-candidates 3
+    * review fewer candidates:   --critique-top-n 2
+    * check plumbing for free:   --dry-run   (fake models, zero API calls)
+    * slow down deliberately: put REQUEST_DELAY=2 in .env to pause 2 seconds
+      before each call, which helps with per-minute limits
+
+Quota amounts change over time, so check your current limits in Google AI
+Studio rather than trusting a number written down somewhere.
+
+
+===============================================================================
+M. CACHING
+===============================================================================
+
+Some work is expensive and identical every time, so the project saves it to
+disk and reuses it. This is called a cache.
+
+Location:
+
+    J:\Historical-Analogy-of-LLMs\.hal_cache\
+
+It contains:
+
+    embeddings/    the number-vectors for the 658 pool events
+    wikipedia_en   Wikipedia pages that were looked up
+
+WHAT YOU WILL SEE:
+The first time you run a retrieval method, it prints something like:
+
+    (embedding the event pool: all 658 events, cached on disk)
+        embedding event pool: 32/658
+        embedding event pool: 64/658
+        ...
+
+That is 658 API calls and it takes a while. Every later run reuses the saved
+vectors and skips straight past this. If you use --smoke it only embeds 40
+events instead.
+
+The cache remembers WHICH model produced each vector, so if you switch
+EMBEDDING_MODEL it will not mix old and new vectors -- it just recomputes.
+
+The cache is only an optimisation. It never changes a result, and it is ignored
+by Git (it is listed in .gitignore), so it is never shared. Deleting the
+.hal_cache folder is always safe; the project will simply rebuild it.
+
+
+===============================================================================
+N. RUNNING TESTS
+===============================================================================
+
+    py -m pytest tests -q
+
+There are currently 127 tests and they take a couple of seconds.
+
+THESE TESTS DO NOT USE YOUR API KEY OR YOUR QUOTA.
+They run against fake ("mock") providers -- small Python classes that pretend
+to be Gemini and return scripted answers. There is no network access anywhere
+in the test suite. So you can run them as often as you like, for free.
+
+The tests also deliberately ignore your local .env, so they always check the
+shared project defaults rather than whatever you have set on your machine.
+
+Run them after changing anything. If they pass, the plumbing is intact.
+
+
+===============================================================================
+O. WHAT GIT SHARES AND WHAT IT DOES NOT
+===============================================================================
+
+SHARED THROUGH GIT (your partner gets these on "git pull"):
+
+    all Python source code
+      - agentic_pipeline/   our agent implementation
+      - gemini_baselines/   our baseline implementation
+      - hal/                the shared infrastructure
+      - framework/          the original paper code
+    hal/project_defaults.py   <-- the shared project defaults
+    dataset/                  the data
+    tests/
+    examples/
+    requirements_project.txt
+    .env.example
+    .gitignore
+    PROJECT.md
+    PROJECT_GUIDE.txt         <-- this file
+
+NOT SHARED (stays on your computer only):
+
+    .env                  your local settings
+    GEMINI_API_KEY        your secret key
+    .hal_cache/           local caches
+    .idea/                your PyCharm settings (interpreter, window layout)
+    __pycache__/, .pytest_cache/
+
+THE PRACTICAL CONSEQUENCE:
+
+    Change hal/project_defaults.py + commit + push  ->  partner GETS it
+    Change .env                                     ->  partner does NOT get it
+
+That is intentional, not an accident. Secrets and personal preferences must not
+travel; research settings must.
+
+So: if you decide "we should use model X for this project", that decision goes
+in hal/project_defaults.py, NOT in .env.
+
+
+===============================================================================
+P. TROUBLESHOOTING
+===============================================================================
+
+1. "pip is not recognized as an internal or external command"
+
+   Use the Python launcher instead of bare pip:
+
+       py -m pip install -r requirements_project.txt
+
+
+2. "python" is not found, or opens the Microsoft Store
+
+   On Windows use "py":
+
+       py --version
+       py examples/run_all_methods.py --smoke
+
+   In PyCharm you can also just press the Run button, which uses the
+   interpreter configured for the project.
+
+
+3. "No API key found. Set GEMINI_API_KEY ..."
+
+   Check all of these:
+     * the file is named exactly ".env" (not ".env.txt" -- Windows likes to
+       add extensions; turn on "show file name extensions" in Explorer)
+     * it is in the repository ROOT, next to PROJECT.md
+     * it contains a line   GEMINI_API_KEY=your-key   with no quotes
+     * you saved the file
+
+   To check without revealing the key:
+
+       py -c "from hal.config import load_settings; print('key present:', bool(load_settings().api_key))"
+
+
+4. "429 RESOURCE_EXHAUSTED"
+
+   API quota or rate limit, not a code bug. See section L. Wait, or use
+   --smoke, or run a single method.
+
+
+5. "ModuleNotFoundError" / import errors
+
+   Install the dependencies:
+
+       py -m pip install -r requirements_project.txt
+
+   If it says a module in this project is missing (for example "hal"), make
+   sure you are running from the repository ROOT folder, not from inside
+   examples/ or agentic_pipeline/.
+
+
+6. The model does not seem to be the one I expected
+
+   Ask the code where the value came from:
+
+       py -c "from hal.config import load_settings, config_source; s=load_settings(); print(s.llm_model, '<- from', config_source('LLM_MODEL'))"
+
+   If it prints "from env", you have a leftover LLM_MODEL line in your .env.
+   Comment it out to go back to the shared default.
+
+
+7. The answer text looks cut off, or JSON parsing warnings appear
+
+   Some models return long answers. You can raise the limit locally by adding
+   to .env:
+
+       MAX_OUTPUT_TOKENS=4096
+
+
+===============================================================================
+Q. FIRST-TIME SETUP CHECKLIST
+===============================================================================
+
+    [ ] Clone or pull the repository
+    [ ] py -m pip install -r requirements_project.txt
+    [ ] Copy .env.example  ->  .env
+    [ ] Put your own GEMINI_API_KEY into .env
+    [ ] py examples/run_all_methods.py --help            (does it start?)
+    [ ] py -m pytest tests -q                            (free, no API used)
+    [ ] py examples/run_all_methods.py --methods agentic --dataset popular --index 0 --smoke
+    [ ] Only then try bigger runs
+
+Two commands worth remembering:
+
+    cheapest real run:
+        py examples/run_all_methods.py --methods agentic --dataset popular --index 0 --smoke
+
+    tests:
+        py -m pytest tests -q
+
+===============================================================================

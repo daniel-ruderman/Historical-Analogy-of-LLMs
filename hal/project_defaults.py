@@ -44,12 +44,12 @@ PROJECT_DEFAULTS: Dict[str, str] = {
     # --- models ------------------------------------------------------------
     # The generation model and the embedding model are configured
     # independently: changing one does not imply changing the other.
-    "LLM_MODEL": "gemini-3.6-flash",
+    "LLM_MODEL": "gemini-2.5-flash",
     "EMBEDDING_MODEL": "gemini-embedding-001",
 
     # Per-role models are intentionally absent: each role falls back to
     # LLM_MODEL. To pin one for the whole team, add it here, e.g.
-    #     "JUDGE_MODEL": "gemini-3.6-flash",
+    #     "JUDGE_MODEL": "gemini-2.5-flash",
     # Recognised keys: GENERATOR_MODEL, CRITIC_MODEL, ANTI_ANALOGY_MODEL,
     # JUDGE_MODEL, SUMMARIZER_MODEL, BASELINE_MODEL, EVALUATION_MODEL.
 

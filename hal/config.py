@@ -68,7 +68,7 @@ _ROLE_ENV = {
 DEFAULT_LLM_PROVIDER = get_project_default("LLM_PROVIDER") or "gemini"
 DEFAULT_EMBEDDING_PROVIDER = get_project_default("EMBEDDING_PROVIDER") or "gemini"
 DEFAULT_SEARCH_PROVIDER = get_project_default("SEARCH_PROVIDER") or "wikipedia"
-DEFAULT_LLM_MODEL = get_project_default("LLM_MODEL") or "gemini-3.6-flash"
+DEFAULT_LLM_MODEL = get_project_default("LLM_MODEL") or "gemini-2.5-flash"
 DEFAULT_EMBEDDING_MODEL = get_project_default("EMBEDDING_MODEL") or "gemini-embedding-001"
 
 # The paper (Sec. 5.1) runs the baselines with temperature 0.1.

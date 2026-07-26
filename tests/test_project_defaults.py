@@ -38,7 +38,7 @@ ROLE_ENV_VARS = [
 
 # --- the tracked defaults -------------------------------------------------
 def test_team_default_model_is_tracked_in_the_repository():
-    assert PROJECT_DEFAULTS["LLM_MODEL"] == "gemini-3.6-flash"
+    assert PROJECT_DEFAULTS["LLM_MODEL"] == "gemini-2.5-flash"
     assert PROJECT_DEFAULTS["LLM_PROVIDER"] == "gemini"
 
 
@@ -46,7 +46,7 @@ def test_tracked_defaults_apply_without_any_env_var():
     """A fresh clone with no model values in `.env` still gets the team default."""
     settings = load_settings()
     assert settings.llm_provider == "gemini"
-    assert settings.llm_model == "gemini-3.6-flash"
+    assert settings.llm_model == "gemini-2.5-flash"
     assert settings.embedding_provider == "gemini"
     assert settings.embedding_model == "gemini-embedding-001"
     assert settings.refinement_rounds == 2
@@ -58,13 +58,13 @@ def test_every_role_defaults_to_the_tracked_model():
     settings = load_settings()
     for role in ("generator", "critic", "anti_analogy", "judge", "summarizer",
                  "baseline", "evaluation"):
-        assert settings.model_for(role) == "gemini-3.6-flash"
+        assert settings.model_for(role) == "gemini-2.5-flash"
 
 
 def test_code_level_fallbacks_agree_with_the_tracked_defaults():
     assert DEFAULT_LLM_MODEL == PROJECT_DEFAULTS["LLM_MODEL"]
     assert DEFAULT_EMBEDDING_MODEL == PROJECT_DEFAULTS["EMBEDDING_MODEL"]
-    assert Settings().llm_model == "gemini-3.6-flash"
+    assert Settings().llm_model == "gemini-2.5-flash"
 
 
 def test_generation_and_embedding_models_are_independent(monkeypatch):
@@ -96,8 +96,8 @@ def test_role_specific_override_still_works(monkeypatch):
     monkeypatch.setenv("JUDGE_MODEL", "judge-only-model")
     settings = load_settings()
     assert settings.model_for("judge") == "judge-only-model"
-    assert settings.model_for("critic") == "gemini-3.6-flash"
-    assert settings.model_for("generator") == "gemini-3.6-flash"
+    assert settings.model_for("critic") == "gemini-2.5-flash"
+    assert settings.model_for("generator") == "gemini-2.5-flash"
 
 
 @pytest.mark.parametrize("env_var", ROLE_ENV_VARS)
@@ -109,7 +109,7 @@ def test_each_role_env_var_is_honoured(monkeypatch, env_var):
 
 def test_blank_env_var_falls_back_to_the_tracked_default(monkeypatch):
     monkeypatch.setenv("LLM_MODEL", "   ")
-    assert load_settings().llm_model == "gemini-3.6-flash"
+    assert load_settings().llm_model == "gemini-2.5-flash"
 
 
 def test_numeric_and_boolean_overrides(monkeypatch):
@@ -121,7 +121,7 @@ def test_numeric_and_boolean_overrides(monkeypatch):
 
 
 def test_resolution_order_is_env_then_project_then_fallback(monkeypatch):
-    assert resolve("LLM_MODEL") == "gemini-3.6-flash"          # project
+    assert resolve("LLM_MODEL") == "gemini-2.5-flash"          # project
     monkeypatch.setenv("LLM_MODEL", "env-model")
     assert resolve("LLM_MODEL") == "env-model"                  # env wins
     assert resolve("NOT_A_TRACKED_KEY", "code-fallback") == "code-fallback"
@@ -173,7 +173,7 @@ def test_env_example_documents_the_secret_without_a_value():
                 if l.strip().startswith("GEMINI_API_KEY="))
     assert line.strip() == "GEMINI_API_KEY="
     # non-secret defaults are documented as optional (commented out)
-    assert "# LLM_MODEL=gemini-3.6-flash" in text
+    assert "# LLM_MODEL=gemini-2.5-flash" in text
 
 
 def test_env_is_git_ignored():
