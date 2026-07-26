@@ -1,0 +1,21 @@
+# Dependencies of OUR extension (PROJECT.md).
+# The original paper code under framework/ and evaluation.py has its own
+# (OpenAI/LangChain) dependencies and is not affected by this file.
+#
+#   pip install -r requirements_project.txt
+
+# --- required ---------------------------------------------------------------
+google-genai>=1.0.0        # current official Google Gen AI SDK (from google import genai)
+requests>=2.31.0           # Wikipedia / MediaWiki API access
+python-dotenv>=1.0.0       # reads .env (a minimal fallback parser exists too)
+
+# --- recommended ------------------------------------------------------------
+numpy>=1.24.0              # faster similarity computation (pure-Python fallback exists)
+nltk>=3.8.1                # tokenizer + stop-words for the literal-similarity metric,
+                           # as in the original evaluation.py. After installing run:
+                           #   python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('stopwords')"
+                           # Without NLTK a regex tokenizer is used instead and
+                           # hal.text_similarity.tokenizer_backend() reports "regex".
+
+# --- tests ------------------------------------------------------------------
+pytest>=7.4.0

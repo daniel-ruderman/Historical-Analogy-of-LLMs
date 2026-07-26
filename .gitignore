@@ -1,0 +1,19 @@
+# Secrets -- never commit an API key
+.env
+
+# Caches produced by our extension (embeddings, Wikipedia pages)
+.hal_cache/
+
+# Run outputs
+output.jsonl
+output_file.jsonl
+agentic_output.jsonl
+results/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/

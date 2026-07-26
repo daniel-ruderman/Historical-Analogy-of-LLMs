@@ -1,0 +1,575 @@
+# Past Meets Present with AI Agents
+
+**An agentic extension of *"Past Meets Present: Creating Historical Analogy with Large Language Models"***
+
+Daniel Ruderman, Yuval Rom
+
+---
+
+This repository is a fork of the code accompanying Li et al., *Past Meets Present: Creating
+Historical Analogy with Large Language Models*. The original implementation is preserved
+untouched under `framework/` and `evaluation.py` and remains the reference for the paper's
+methods. Everything described below is **added** alongside it.
+
+**Research question:** *Will transitioning to agentic AI-based analogy retrieval significantly
+improve results over standard LLM prompting?*
+
+---
+
+## 1. Motivation
+
+Applied history uses past events, patterns and precedents to reason about present-day problems.
+Its central tool is the **historical analogy**: comparing a current event to a similar past one
+in order to understand its causes, dynamics and likely consequences.
+
+Analogies are powerful precisely because they shape how people interpret unfamiliar events —
+and that is also why they are dangerous. Research in applied history shows that people, and
+politicians in particular, tend to pick analogies that are:
+
+- **superficial** — based on obvious surface similarities;
+- **politically convenient** — chosen to support a position already held;
+- **overused** — whichever famous example comes to mind first;
+- **incomplete** — ignoring the differences that actually matter.
+
+An LLM asked for a historical analogy exhibits the same failure modes, amplified by
+pre-training biases: it gravitates to the canonical answer, it can hallucinate events that
+never happened, and it never looks for evidence that its own answer is wrong.
+
+Our hypothesis is that these are *search and criticism* failures rather than *knowledge*
+failures, and that they are best addressed with an agentic architecture that explicitly
+searches, criticises and challenges its own candidates before committing to one.
+
+## 2. What historical analogy generation is
+
+**Task (from the paper):** given an input event `E_I` and its description `D_I`, produce a
+historical event `E_H` that is analogous to it.
+
+A good analogy matches the **deep structure** of the events, not their wording. The paper
+represents an event along four dimensions, and our project keeps that representation:
+
+| Dimension | Question |
+|---|---|
+| **Topic** | What kind of event is it? |
+| **Background** | What conditions and causes produced it? |
+| **Process** | How did it unfold, through which mechanisms and actors? |
+| **Result** | What were the consequences? |
+
+Canonical example: COVID-19 ↔ the 1918 Spanish flu — both global outbreaks of respiratory
+disease, both causing social and economic disruption, both forcing governments to act under
+uncertainty.
+
+**Datasets** (shipped with the original repository, in `dataset/`):
+
+| File | Rows | Schema | Role |
+|---|---|---|---|
+| `popular_analogy.jsonl` | 20 | `event_name`, `event_intro`, `target_event` | famous analogies with a reference answer → Pass@1 |
+| `general_analogy.jsonl` | 160 | `event_name`, `event_intro`, `event_type` | harder cases with no single correct answer → MDS. Themes: War (50), Politics (50), Culture and Society (50), Economy (10) |
+| `event_pool.jsonl` | 658 | `url`, `history_event_text`, `history_time_text`, `history_intro_text` | the Google Arts & Culture event pool searched by the retrieval methods |
+| `similarity_embeddings-example.jsonl` | 658 | `url`, `embeddings` | the authors' pre-computed OpenAI `text-embedding-3-small` vectors (1536-d, unit norm) |
+
+## 3. What the original paper did
+
+Six methods in two families (`framework/`):
+
+**Dataset retrieval** — search a fixed event pool.
+
+1. **Direct Retrieval** — embed the input description and every pool description, return the
+   event with the highest cosine similarity.
+2. **Two-stage Retrieval** — retrieve the top-10 by cosine similarity, then let an LLM choose
+   the best analogy from that candidate set.
+
+**Free generation** — use the knowledge inside the model.
+
+3. **Direct Generation** — one prompt, one analogous event. Simple, but prone to hallucination
+   and to stereotyped, surface-level answers.
+4. **Two-stage Generation** — generate **10** candidates, verify each one through Wikipedia
+   (dropping events with no entry), then select the best.
+5. **Generation with Summarizing** — summarise the input event *and* every candidate into the
+   four dimensions, and compare the structured summaries instead of raw descriptions.
+6. **Self-reflection Framework** — the paper's most agent-like method. A **Candidate
+   Generator** proposes **5** candidates; an **Answer Reflector** either emits a final answer
+   or a `Reflection` telling the generator how to change the set; the loop repeats. Candidates
+   are Wikipedia-verified. This is the paper's strongest method.
+
+**Evaluation** (`evaluation.py`):
+
+- **Pass@1** for popular analogies (Wikipedia title sets of answer and reference must intersect).
+- **MDS (Multi-Dimensional Similarity)** for general analogies:
+
+  ```
+  MDS = Σ_d  w_d · sim_Abs(D_I^d, D_H^d) · max(α − sim_Lit(D_I^d, D_H^d), 0)
+  ```
+
+  where `d ∈ {topic, background, process, result}`, `sim_Abs` is an LLM judgement on a 1–4
+  scale, `sim_Lit` is Jaccard similarity over stop-word-filtered NLTK tokens, the weights are
+  `w = {topic 0.5, background 1, process 2, result 2}` and `α = 0.35`. High abstract similarity
+  is rewarded; high *literal* similarity is penalised, because an analogy that works only
+  because both events share names, countries or keywords is not a good analogy. The metric
+  correlates with human ranking at Kappa 0.67 / Pearson 0.72 / Spearman 0.73.
+
+## 4. Is the paper's self-reflection framework already agentic?
+
+Partially. It splits the task into two roles, it revises candidates from feedback, and it uses
+Wikipedia to reduce hallucination. But it is **not** a ReAct-style agent:
+
+| ReAct | The paper's self-reflection |
+|---|---|
+| interleaves reasoning, actions and observations | fixed workflow |
+| the model decides which tool to use next | Wikipedia is used only for verification |
+| observations update the next reasoning step | reflection is over candidate quality alone |
+| open-ended investigation | no open-ended search |
+
+Our project extends it into a fully agentic pipeline with search, criticism, anti-analogies and
+a final judgement.
+
+## 5. Our agentic pipeline
+
+```
+  Input event / analogy prompt
+             │
+             ▼
+   ┌───────────────────────┐        critique feedback        ┌──────────────────┐
+   │  Generate/Search      │ ──────────────────────────────► │  Critic agent    │
+   │  agent                │ ◄────────────────────────────── │  evaluates each  │
+   │  proposes 5–10        │                                 │  candidate       │
+   │  candidate analogies  │        counterexample feedback   └──────────────────┘
+   │                       │ ──────────────────────────────► ┌──────────────────┐
+   │                       │ ◄────────────────────────────── │ Anti-Analogy     │
+   └───────────────────────┘                                 │ agent finds      │
+             │        └──── iterative refinement loop, 1–3 ──►│ counterexamples │
+             │                                                └──────────────────┘
+             ▼   refined candidates + critiques + counterexamples + evidence
+      ┌──────────────┐        ┌────────────────────┐
+      │ Final Judge  │ ─────► │ Final Summarizer   │
+      │ ranks them   │        │ explains the winner│
+      └──────────────┘        └────────────────────┘
+```
+
+Three components are **agents** (they run a ReAct-style tool loop): Generate/Search, Critic and
+Anti-Analogy. **Final Judge is not an agent** — it is a ranking/evaluation component that runs
+after the loop, with no tools and no ReAct loop. Final Summarizer is the final explanation
+stage, a plain LLM call.
+
+### 5.1 Generate/Search agent — `agentic_pipeline/generate_search_agent.py`
+
+Takes the input event, understands its historical structure and proposes 5–10 candidate
+analogies (`MAX_CANDIDATES`, default 8). It is instructed to prefer structural analogy over
+surface word similarity and to vary period, region and causal pattern rather than produce
+variations of one idea. It can search before committing to a candidate, and every candidate is
+checked against the knowledge base — unverifiable events are **flagged** (`verified=False`)
+rather than silently dropped, so the Critic can comment on them and the Judge can penalise them.
+
+In later rounds it receives the candidates, the critiques, the counterexamples and the
+evidence, and returns a revised set in which each candidate is explicitly **kept**, **revised**,
+**replaced**, **added** or dropped, with a reason. The prompt states that a candidate should not
+be replaced merely for having been criticised: a strong candidate with known limitations is
+more useful than a weak one nobody attacked.
+
+### 5.2 Critic agent — `agentic_pipeline/critic_agent.py`
+
+Evaluates **each** candidate and returns a structured `Critique`:
+
+- 1–4 scores for **topic / background / process / result** similarity (the paper's scale);
+- the **structural correspondence** that genuinely holds;
+- **important differences** (scale, period, technology, institutions);
+- **weak assumptions** the analogy depends on;
+- **factual/evidence problems**;
+- whether the analogy is **mostly surface-level**;
+- an overall score and a `keep` / `revise` / `replace` recommendation.
+
+It may search before criticising a factual claim. The output is structured precisely so the
+Generate/Search agent can act on it rather than re-reading prose.
+
+### 5.3 Anti-Analogy agent — `agentic_pipeline/anti_analogy_agent.py`
+
+The component that keeps the system honest. For each candidate it actively looks for:
+
+- historically similar cases that produced **different or opposite outcomes**;
+- counterexamples showing the mechanism does not reliably produce the claimed result;
+- cases sharing the apparent pattern but diverging at a decisive point;
+- evidence that reasoning from this analogy has misled before.
+
+It returns counterexamples (each verified against the knowledge base where possible), failure
+modes, a **robustness** score in [0, 1] and a verdict `holds` / `weakened` / `undermined`. This
+lets the Generate/Search agent weaken confidence in a candidate, narrow it, replace it, or
+record its limitations — instead of accumulating support for whatever it thought of first.
+
+### 5.4 ReAct-style search — `agentic_pipeline/react.py`
+
+A small loop implemented directly (no agent framework), so every step is visible and
+modifiable. Each turn the agent returns one JSON object: either a `search`/`lookup` action, or
+`finish` with the answer. Observations are appended and the loop continues until the agent
+finishes or exhausts its tool budget (`REACT_MAX_STEPS`).
+
+Search goes through a `SearchProvider` abstraction. The default is
+`WikipediaSearchProvider` — free, and the source the paper already uses. A web-search backend
+can be registered later without touching any agent.
+
+**Logging policy:** logs record *observable* information — the search query, the tool used, the
+titles returned, the candidate, a one-sentence rationale (capped at 240 characters), the
+critique, the counterexample and the revision. Long internal monologue is never requested,
+stored or printed.
+
+### 5.5 Iterative refinement loop — `agentic_pipeline/pipeline.py`
+
+```
+candidates ← Generate/Search.propose(event)
+
+for round in 1..REFINEMENT_ROUNDS:            # default 2, design range 1–3
+    critiques      ← Critic.critique_all(candidates)
+    anti_analogies ← AntiAnalogy.investigate_all(candidates)
+    candidates, revisions ← Generate/Search.revise(candidates, critiques,
+                                                   anti_analogies, evidence)
+
+if the final set changed in the last round:   # otherwise reuse the feedback
+    critiques, anti_analogies ← review(candidates)
+
+ranking ← FinalJudge.rank(candidates, critiques, anti_analogies, evidence)
+result  ← FinalSummarizer.explain(ranking.winner)
+```
+
+Every round is recorded as a `RefinementRound`: critiques, counterexamples, revisions and the
+candidate set after the round.
+
+### 5.6 Final Judge — `agentic_pipeline/final_judge.py`
+
+**Not an agent.** No tools, no ReAct loop, no ability to propose new candidates — it is a
+ranking/evaluation stage after the loop. It receives the refined candidates, the Critic
+feedback, the Anti-Analogy counterexamples and the collected evidence, and ranks all candidates
+on structural quality, evidence, major differences, unresolved critiques, counterexamples and
+robustness. Each row of the ranking carries a rank, the candidate event, a concise reason and
+its important weaknesses.
+
+If the judge's output cannot be parsed, `heuristic_ranking()` produces a deterministic ranking
+from the structured scores (`critic_overall × robustness`, penalised for unverified and
+surface-level candidates), so a run always yields a result. That function is also available on
+its own for an ablation: *how much does the LLM judge add over the structured scores?*
+
+### 5.7 Final Summarizer — `agentic_pipeline/final_summarizer.py`
+
+A plain LLM call that explains the winning analogy to someone who wants to *use* it: the input
+event, the winning analogy, what the comparison illuminates, the important structural
+similarities and differences, the relevant counterexamples, the limitations, and why it ranked
+above the alternatives.
+
+### 5.8 Structured data — `hal/schemas.py`
+
+Components exchange dataclasses, not free-form strings: `HistoricalEvent`, `EventDimensions`,
+`CandidateAnalogy`, `Critique`, `CounterExample`, `AntiAnalogyReport`, `CandidateRevision`,
+`RefinementRound`, `RankedCandidate`, `JudgeRanking`, `Evidence`, `FinalAnalogyResult`. Every
+LLM step requests JSON, and `hal/json_utils.py` validates it tolerantly (markdown fences,
+surrounding prose, Python literals, trailing commas). Malformed output never aborts a run:
+each component degrades to a documented fallback and records the problem in `result.errors`.
+
+`FinalAnalogyResult.to_output_row()` emits the original repository's jsonl format
+(`event_name`, `event_intro`, `analogy_event`, `candidate`), so our results feed straight into
+the paper's evaluation.
+
+## 6. Model / provider abstraction
+
+The provider is **orthogonal to the method**, so the same algorithm can be run against
+different models:
+
+```
+LLMProvider.generate(prompt, stop=…, temperature=…, json_output=…)   hal/providers/base.py
+EmbeddingProvider.embed(text) / embed_batch(texts)
+SearchProvider.search(query, top_k) / get_page(title)
+```
+
+| Concrete implementation | File |
+|---|---|
+| `GeminiLLMProvider`, `GeminiEmbeddingProvider` | `hal/providers/gemini.py` |
+| `WikipediaSearchProvider`, `NullSearchProvider` | `hal/providers/search.py` |
+| `MockLLMProvider`, `MockEmbeddingProvider`, `MockSearchProvider` | `hal/providers/mock.py` |
+| `CachedEmbeddingProvider` (decorator) | `hal/providers/caching.py` |
+
+Algorithms only ever call the factory:
+
+```python
+from hal.providers import get_llm, get_embedding_provider, get_search_provider
+
+llm = get_llm(role="critic")          # model comes from CRITIC_MODEL or LLM_MODEL
+```
+
+**Adding a provider** (e.g. OpenAI, a local model) means writing one subclass and registering
+it — no method code changes:
+
+```python
+from hal.providers import register_llm
+register_llm("my_provider", lambda settings, role, model: MyLLM(model=model))
+# then: LLM_PROVIDER=my_provider
+```
+
+**Gemini specifics.** We use the current official SDK `google-genai` (`from google import
+genai`) and the standard `GEMINI_API_KEY` variable. The Gemini API exposes two generation
+surfaces — the long-standing `client.models.generate_content` and the newer
+`client.interactions.create`; `GEMINI_API_SURFACE` selects one, and the default `auto` prefers
+`models.generate_content` (it supports stop sequences and JSON mime types directly) and falls
+back to `interactions.create`. All of this lives inside the provider: the API adaptation is
+separated from the research methodology. Safety filters are set to `BLOCK_NONE`, matching the
+original repository, because historical content about wars and atrocities otherwise gets
+blocked.
+
+### Configuration
+
+All configuration is environment-driven (`hal/config.py`, `.env.example`). No API key is ever
+hardcoded, and `.env` is git-ignored.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GEMINI_API_KEY` | *(none)* | your key |
+| `LLM_PROVIDER` / `LLM_MODEL` | `gemini` / `gemini-2.5-flash-lite` | LLM for every role |
+| `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` | `gemini` / `gemini-embedding-001` | retrieval embeddings |
+| `EMBEDDING_DIMENSIONS` | *(SDK default)* | optional reduced dimensionality |
+| `SEARCH_PROVIDER` | `wikipedia` | agent tool backend |
+| `GENERATOR_MODEL`, `CRITIC_MODEL`, `ANTI_ANALOGY_MODEL`, `JUDGE_MODEL`, `SUMMARIZER_MODEL`, `BASELINE_MODEL`, `EVALUATION_MODEL` | = `LLM_MODEL` | optional per-role models |
+| `REFINEMENT_ROUNDS` | `2` | refinement rounds (design range 1–3) |
+| `MAX_CANDIDATES` / `MIN_CANDIDATES` | `8` / `5` | candidate-set size |
+| `REACT_MAX_STEPS` / `SEARCH_TOP_K` | `4` / `4` | tool budget per agent call |
+| `LLM_TEMPERATURE` | `0.1` | the paper's baseline temperature |
+| `EVALUATION_TEMPERATURE` | `0.0` | MDS judge |
+| `MAX_RETRIES`, `RETRY_BASE_DELAY`, `RETRY_MAX_DELAY`, `REQUEST_DELAY` | `5`, `2.0`, `60.0`, `0.0` | quota robustness |
+| `CACHE_ENABLED` / `CACHE_DIR` | `true` / `.hal_cache` | on-disk caches |
+| `GEMINI_API_SURFACE` | `auto` | `auto` / `models` / `interactions` |
+
+> **Model names are configuration, not architecture.** The defaults above are starting points;
+> Gemini free-tier model availability and quotas change over time — check your own limits in
+> AI Studio and set `LLM_MODEL` accordingly. The presentation plans `gemini-3.5-flash` as the
+> closed-model baseline; setting `LLM_MODEL=gemini-3.5-flash` is the only change required.
+
+### Comparing methods across models
+
+Because the provider is orthogonal to the method, the planned experiment grid works by changing
+environment variables only:
+
+```bash
+LLM_MODEL=gemini-2.5-flash-lite python examples/run_all_methods.py --methods direct_generation
+LLM_MODEL=gemini-3.5-flash      python examples/run_all_methods.py --methods direct_generation
+LLM_MODEL=gemini-3.5-flash      python examples/run_all_methods.py --methods agentic
+```
+
+## 7. Quota, caching and robustness
+
+- **Retries with exponential backoff + jitter** on every outbound call (`hal/retry.py`).
+  Transient failures (429, 5xx, timeouts) are retried and a server-provided `retryDelay` is
+  honoured; permanent failures (bad key, unknown model) fail fast instead of burning quota.
+- **Embedding cache** (`hal/cache.py`) keyed by *provider + model + dimensionality + text hash*,
+  so vectors from different embedding models never mix. The 658-event pool is embedded once.
+- **Wikipedia cache** for page lookups and searches.
+- `REQUEST_DELAY` adds a fixed pause before each call if you hit per-minute limits.
+- Caches only avoid repeating identical external calls; they are never part of a result.
+
+## 8. Installation
+
+```bash
+pip install -r requirements_project.txt
+```
+
+Optional, for the faithful NLTK tokenizer used by the literal-similarity metric:
+
+```bash
+python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('stopwords')"
+```
+
+(Without NLTK a regex tokenizer is used; `hal.text_similarity.tokenizer_backend()` reports which
+one is active.)
+
+Then configure your key:
+
+```bash
+cp .env.example .env      # Windows: copy .env.example .env
+```
+
+and put your key in `.env`:
+
+```
+GEMINI_API_KEY=your-key-here
+```
+
+`.env` is git-ignored. Alternatively export `GEMINI_API_KEY` in your shell. Get a key at
+<https://aistudio.google.com/apikey>.
+
+## 9. Running
+
+### Quick smoke test (few API calls)
+
+```bash
+python examples/run_all_methods.py --smoke
+```
+
+Small event pool (40), one refinement round, three candidates, one tool call per agent step.
+
+Completely offline, no key and no network — checks the plumbing only:
+
+```bash
+python examples/run_all_methods.py --dry-run
+```
+
+### All methods on a real example
+
+```bash
+python examples/run_all_methods.py --dataset popular --index 0
+```
+
+The first run embeds all 658 pool events (cached afterwards). Useful options:
+`--dataset popular|general`, `--index N`, `--methods all|baselines|agentic|<comma list>`,
+`--rounds N`, `--max-candidates N`, `--react-steps N`, `--critique-top-n N`, `--model NAME`,
+`--provider NAME`, `--pool-limit N`, `--full`, `--output results.jsonl`, `--verbose`.
+
+### Only our agentic pipeline
+
+```bash
+python examples/run_all_methods.py --methods agentic --dataset popular --index 0
+```
+
+or, over a whole dataset:
+
+```bash
+python -m agentic_pipeline.pipeline --dataset popular --rounds 2 --output agentic_output.jsonl
+```
+
+### Individual baselines
+
+Same interface as the original scripts:
+
+```bash
+python -m gemini_baselines.reflection_generation --testset popular --output output.jsonl
+python -m gemini_baselines.direct_generation     --testset general --limit 5
+python -m gemini_baselines.twostage_retrieval    --testset popular --pool-limit 100
+```
+
+`--testset` accepts `popular`, `general` or a path to any `.jsonl` whose rows have
+`event_name` and `event_intro`.
+
+### Evaluation
+
+```bash
+python -m gemini_baselines.evaluation_mds --testset output.jsonl
+python -m gemini_baselines.evaluation_mds --testset output.jsonl --pass1   # popular set
+```
+
+Input is the output format of any method (`event_name`, `event_intro`, `analogy_event`).
+
+### Tests
+
+```bash
+python -m pytest tests -q
+```
+
+100 tests, no API key and no network required — everything runs against mock providers.
+
+## 10. What we added
+
+```
+PROJECT.md                     this document
+.env.example                   configuration template (never contains a key)
+requirements_project.txt       our dependencies (the paper's are untouched)
+.gitignore                     ignores .env, caches and run outputs
+
+hal/                           shared infrastructure (no research method here)
+  config.py                    env-driven settings, per-role models
+  schemas.py                   HistoricalEvent, CandidateAnalogy, Critique, CounterExample,
+                               CandidateRevision, JudgeRanking, FinalAnalogyResult, …
+  providers/
+    base.py                    LLMProvider / EmbeddingProvider / SearchProvider interfaces
+    gemini.py                  GeminiLLMProvider, GeminiEmbeddingProvider
+    search.py                  WikipediaSearchProvider, NullSearchProvider
+    mock.py                    fake providers for tests and --dry-run
+    caching.py                 CachedEmbeddingProvider
+    factory.py                 registry: get_llm(role=…), get_embedding_provider(), …
+  cache.py                     JsonCache, EmbeddingCache (keyed by model)
+  retry.py                     exponential backoff, transient/permanent classification
+  wiki.py                      Wikipedia helper with the original's fallback semantics
+  json_utils.py                tolerant parsing of LLM JSON
+  text_similarity.py           Jaccard / literal similarity (algorithmic, no LLM)
+  vector.py                    cosine similarity (numpy optional)
+  io_utils.py                  jsonl helpers, dataset paths
+
+gemini_baselines/              provider-neutral ports of the paper's six methods
+  prompts.py                   every original prompt, copied verbatim
+  common.py                    BaselineContext + shared steps
+  direct_retrieval.py          ← framework/retrieval-based/direct_retrieval.py
+  twostage_retrieval.py        ← framework/retrieval-based/twostage_retrieval.py
+  direct_generation.py         ← framework/generation-based/direct_generation.py
+  twostage_generation.py       ← framework/generation-based/twostage_generation.py
+  summary_generation.py        ← framework/generation-based/summary_generation.py
+  reflection_generation.py     ← framework/generation-based/reflection_generation.py
+  evaluation_mds.py            ← evaluation.py  (Pass@1 + MDS)
+  cli.py                       shared command-line plumbing
+
+agentic_pipeline/              OUR new method
+  prompts.py                   our prompts (Generate/Search, Critic, Anti-Analogy, Judge, Summarizer)
+  react.py                     the ReAct-style tool loop
+  generate_search_agent.py     Agent 1
+  critic_agent.py              Agent 2
+  anti_analogy_agent.py        Agent 3
+  final_judge.py               Final Judge (NOT an agent) + heuristic_ranking
+  final_summarizer.py          Final Summarizer
+  pipeline.py                  the refinement loop + CLI
+
+examples/run_all_methods.py    runs all six baselines + our pipeline on one dataset example
+tests/                         100 tests, all offline
+```
+
+**Unchanged original files:** `framework/**`, `evaluation.py`, `dataset/**`, `README.md`,
+`images/**`. Nothing in the original implementation was deleted, renamed or rewritten.
+
+## 11. Research design constraints
+
+**A. The baselines stay faithful.** `gemini_baselines/` reproduces the paper's methodology:
+the same prompts (copied verbatim into `gemini_baselines/prompts.py`), the same candidate
+counts (10 for two-stage/summarizing, 5 for self-reflection, top-10 for retrieval), the same
+algorithm structure, the same Wikipedia verification, the same iteration logic, the same
+temperature (0.1), the same input and output formats, the same evaluation. They contain **no**
+Critic, **no** Anti-Analogy and no extra search — improving them would make the comparison
+unfair.
+
+**B. Our agentic method** is entirely in `agentic_pipeline/`.
+
+**C. The model provider is orthogonal to both**, so `method × model` is a clean experiment grid.
+
+### Provider differences (unavoidable, documented)
+
+| Aspect | Original | Ours | Effect |
+|---|---|---|---|
+| Embeddings | OpenAI `text-embedding-3-small` (1536-d, unit-norm), pre-computed in `dataset/similarity_embeddings-example.jsonl` | configurable `EmbeddingProvider`, `gemini-embedding-001` by default, computed and cached | **The algorithm is identical** (cosine similarity over description embeddings; top-1 for direct retrieval, top-10 for two-stage). Vectors are *not* numerically comparable across embedding models, so retrieval numbers will differ from the paper's. Gemini vectors are L2-normalised so that an inner product equals cosine similarity, matching the original's use of `np.dot`. |
+| LLM | `gpt-3.5-turbo` / `gpt-4` via LangChain, plus an old `google.generativeai` `gemini-pro` helper | any registered provider; Gemini via `google-genai` | Different model → different outputs. This is intended: the presentation's baseline is to re-run the paper's methods on current SOTA models. |
+| Wikipedia | `wikipedia` PyPI package (HTML scraping, random pick on disambiguation) | MediaWiki API via `requests`, behind `SearchProvider`, cached | Same source and same procedure (exact title, else first search hit, lead section, truncated at 4096 chars). More reliable and reproducible; disambiguation resolution is deterministic rather than random. |
+| Reflection loop | `while 'Reflection' in choice` with no bound | identical, plus a `max_reflections` cap (default 5) | The original cannot terminate if the model always reflects. The paper reports reflection firing in ~10% of cases, so the cap does not normally bind. |
+| Conversation memory | LangChain `LLMChain` + `ConversationBufferMemory` | `ConversationMemory` reproducing the same buffer format (`Input: …` / `Output: …`) | The prompt the model sees is the same, without the LangChain dependency. |
+| Malformed output | `ast.literal_eval` raises; a batch run dies | the original repair prompt is kept, then a local JSON/array extraction, then an empty result | The original's repair step is preserved; the extra fallbacks only prevent a crash. |
+| MDS abstract score | out-of-range scores warn but are returned; unparseable output raises | clamped to [1, 4]; unparseable scores 1 | Keeps a batch run alive; identical for well-formed answers. |
+| Literal similarity | NLTK tokenizer + stop-words | the same when NLTK is installed, else a regex tokenizer with NLTK's stop-word list | `tokenizer_backend()` reports which is active. Use NLTK for reported numbers. |
+| `summary_generation.py` | never imports `llm_tools` → `NameError` when run | routes through the provider abstraction | A bug in the original; no prompt or step was changed. |
+| `direct_retrieval.py` | reads `event_pool.jsonl.jsonl` and `similarity_embeddings.jsonl` (neither name exists in the repo) | reads `dataset/event_pool.jsonl` and computes vectors | Path bug in the original. |
+
+## 12. Evaluation strategy
+
+**First strategy — MDS.** We use the paper's metric to compare our agentic pipeline against the
+baselines, with the same four dimensions, weights and threshold, and the LLM-judged part routed
+through the configurable provider (`gemini_baselines/evaluation_mds.py`). Because MDS penalises
+literal similarity, it will not reward an analogy that merely reuses the input event's
+vocabulary. Note that MDS values are comparable only when the *same* judge model is used for
+every method being compared.
+
+**Second strategy — usefulness for prediction (planned, not implemented).** Test whether better
+analogies improve forecasting: generate analogies with each method, ask the same LLM to predict
+an outcome with and without them, and score with Brier/log score. To avoid data leakage from
+resolved historical questions, this must use *unresolved* forecasting questions (ForecastBench,
+Metaculus FutureEval), recording predictions before resolution. Not part of this codebase yet.
+
+## 13. Status and next steps
+
+Implemented and tested offline: the provider/search abstractions, all six provider-neutral
+baselines, the MDS evaluation, the full agentic pipeline, the example runner and 100 tests.
+
+Still to do:
+
+- run the real Gemini smoke test once an API key is configured (see §9);
+- decide the reported model (`gemini-3.5-flash` per the presentation) and confirm its free-tier
+  quota before a full run;
+- full-dataset runs and MDS comparison of the baselines against our pipeline;
+- the human-evaluation protocol from the paper, if we replicate it;
+- the prediction-usefulness evaluation of §12;
+- optionally, additional providers (open models such as Gemma / MiniMax, per the presentation's
+  baseline slide) — a subclass plus a `register_llm` call each.
