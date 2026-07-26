@@ -11,6 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from hal import config as config_module  # noqa: E402
 from hal.config import Settings, set_settings  # noqa: E402
 from hal.providers.mock import (  # noqa: E402
     MockEmbeddingProvider,
@@ -22,7 +23,20 @@ from hal.wiki import WikipediaHelper  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def offline_settings(tmp_path, monkeypatch):
-    """Every test runs with mock providers, caching in a temp dir, no API key."""
+    """Every test runs with mock providers, caching in a temp dir, no API key.
+
+    The developer's own `.env` is never read: tests must see the *tracked*
+    project defaults, not one machine's local overrides.
+    """
+    real_load_dotenv = config_module.load_dotenv
+
+    def load_dotenv_without_the_local_file(path=None):
+        if path is not None:          # an explicit path (used by the config tests)
+            real_load_dotenv(path)
+
+    monkeypatch.setattr(config_module, "load_dotenv",
+                        load_dotenv_without_the_local_file)
+
     for name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY",
                  "LLM_PROVIDER", "LLM_MODEL", "EMBEDDING_PROVIDER", "EMBEDDING_MODEL",
                  "REFINEMENT_ROUNDS", "MAX_CANDIDATES", "GENERATOR_MODEL",

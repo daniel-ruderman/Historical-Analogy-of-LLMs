@@ -310,15 +310,42 @@ separated from the research methodology. Safety filters are set to `BLOCK_NONE`,
 original repository, because historical content about wars and atrocities otherwise gets
 blocked.
 
-### Configuration
+### Configuration: shared defaults vs. local secrets
 
-All configuration is environment-driven (`hal/config.py`, `.env.example`). No API key is ever
-hardcoded, and `.env` is git-ignored.
+Configuration is split in two, so that a team of collaborators shares research settings through
+Git while keeping credentials private:
 
-| Variable | Default | Meaning |
+| | file | tracked? | contains |
+|---|---|---|---|
+| **Shared project defaults** | `hal/project_defaults.py` | **yes** | provider, models, refinement rounds, candidate counts, temperatures, retry/cache settings |
+| **Local secrets & overrides** | `.env` | **no** (git-ignored) | `GEMINI_API_KEY`, plus any personal override |
+
+Values resolve in this order:
+
+1. **environment variable** (including anything loaded from your local `.env`) — always wins;
+2. **`hal/project_defaults.py`** — the tracked, shared project default;
+3. a code-level fallback in `hal/config.py` — only reached if a key is removed from the tracked
+   defaults.
+
+So editing `hal/project_defaults.py` and pushing changes the default *for the whole team*, while
+setting an environment variable changes it *only for you*, without touching tracked files:
+
+```bash
+LLM_MODEL=some-other-model python examples/run_all_methods.py --methods agentic
+```
+
+**Secrets never get a tracked default.** `GEMINI_API_KEY` (and the other keys in `SECRET_KEYS`)
+are refused by `hal/project_defaults.py`, which raises at import time if one is ever added
+there. No API key appears in any Python file, tracked config, `.env.example`, documentation or
+test.
+
+`hal.config.config_source("LLM_MODEL")` reports where a value came from (`env`, `project` or
+`fallback`) if you need to check what is actually in effect.
+
+| Variable | Tracked default | Meaning |
 |---|---|---|
-| `GEMINI_API_KEY` | *(none)* | your key |
-| `LLM_PROVIDER` / `LLM_MODEL` | `gemini` / `gemini-2.5-flash-lite` | LLM for every role |
+| `GEMINI_API_KEY` | *(none — secret, local `.env` only)* | your key |
+| `LLM_PROVIDER` / `LLM_MODEL` | `gemini` / `gemini-3.6-flash` | LLM for every role |
 | `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` | `gemini` / `gemini-embedding-001` | retrieval embeddings |
 | `EMBEDDING_DIMENSIONS` | *(SDK default)* | optional reduced dimensionality |
 | `SEARCH_PROVIDER` | `wikipedia` | agent tool backend |
@@ -332,21 +359,26 @@ hardcoded, and `.env` is git-ignored.
 | `CACHE_ENABLED` / `CACHE_DIR` | `true` / `.hal_cache` | on-disk caches |
 | `GEMINI_API_SURFACE` | `auto` | `auto` / `models` / `interactions` |
 
-> **Model names are configuration, not architecture.** The defaults above are starting points;
-> Gemini free-tier model availability and quotas change over time — check your own limits in
-> AI Studio and set `LLM_MODEL` accordingly. The presentation plans `gemini-3.5-flash` as the
-> closed-model baseline; setting `LLM_MODEL=gemini-3.5-flash` is the only change required.
+> **Model names are configuration, not architecture.** `gemini-3.6-flash` is the current team
+> default and it is written in exactly one place (`hal/project_defaults.py`); no algorithm file
+> mentions a model name. Gemini model availability and quotas change over time — check your
+> limits in AI Studio, and change the default for everyone by editing that one file and pushing.
+> The generation model and the embedding model are independent: switching `LLM_MODEL` does not
+> touch `EMBEDDING_MODEL`.
 
 ### Comparing methods across models
 
 Because the provider is orthogonal to the method, the planned experiment grid works by changing
-environment variables only:
+environment variables only — no tracked file and no algorithm changes:
 
 ```bash
-LLM_MODEL=gemini-2.5-flash-lite python examples/run_all_methods.py --methods direct_generation
-LLM_MODEL=gemini-3.5-flash      python examples/run_all_methods.py --methods direct_generation
-LLM_MODEL=gemini-3.5-flash      python examples/run_all_methods.py --methods agentic
+python examples/run_all_methods.py --methods direct_generation                      # gemini-3.6-flash (tracked default)
+LLM_MODEL=gemini-2.5-flash python examples/run_all_methods.py --methods direct_generation
+LLM_MODEL=gemini-2.5-flash python examples/run_all_methods.py --methods agentic
 ```
+
+The runner also accepts `--model NAME` / `--provider NAME`, which override the configuration for
+that single run.
 
 ## 7. Quota, caching and robustness
 
@@ -360,6 +392,24 @@ LLM_MODEL=gemini-3.5-flash      python examples/run_all_methods.py --methods age
 - Caches only avoid repeating identical external calls; they are never part of a result.
 
 ## 8. Installation
+
+### Setup after cloning or pulling (this is the whole checklist)
+
+1. **Install dependencies** — `pip install -r requirements_project.txt`
+2. **Create `.env`** — `cp .env.example .env`
+3. **Add your own `GEMINI_API_KEY`** to it
+
+That is all. Everything else — the LLM provider, `gemini-3.6-flash`, the embedding model, the
+refinement rounds, the candidate counts, the temperatures — already comes from the tracked
+repository (`hal/project_defaults.py`), so both collaborators run the same configuration without
+coordinating anything by hand.
+
+> **Why `.env` is not committed:** it holds your personal API key and any local override. It is
+> listed in `.gitignore` on purpose, so it never reaches the shared history — which also means a
+> project default placed only in `.env` would *not* reach your partner. Shared settings belong in
+> `hal/project_defaults.py`; that file is committed, so `git push` / `git pull` propagates them.
+
+### Details
 
 ```bash
 pip install -r requirements_project.txt
@@ -387,7 +437,11 @@ GEMINI_API_KEY=your-key-here
 ```
 
 `.env` is git-ignored. Alternatively export `GEMINI_API_KEY` in your shell. Get a key at
-<https://aistudio.google.com/apikey>.
+<https://aistudio.google.com/apikey>. Each developer uses their own key.
+
+You do **not** need to copy the other values from `.env.example` into `.env` — they are all
+commented out there and documented as optional. Uncomment one only when you want to override the
+shared default on your machine.
 
 ## 9. Running
 
@@ -462,12 +516,16 @@ python -m pytest tests -q
 
 ```
 PROJECT.md                     this document
-.env.example                   configuration template (never contains a key)
+.env.example                   local-configuration template: the required secret plus
+                               commented-out optional overrides (never contains a key)
 requirements_project.txt       our dependencies (the paper's are untouched)
 .gitignore                     ignores .env, caches and run outputs
 
 hal/                           shared infrastructure (no research method here)
-  config.py                    env-driven settings, per-role models
+  project_defaults.py          TRACKED shared project defaults (model, rounds, …) — edit
+                               this to change a default for the whole team
+  config.py                    resolution order env > project defaults > fallback,
+                               per-role models
   schemas.py                   HistoricalEvent, CandidateAnalogy, Critique, CounterExample,
                                CandidateRevision, JudgeRanking, FinalAnalogyResult, …
   providers/
@@ -566,8 +624,7 @@ baselines, the MDS evaluation, the full agentic pipeline, the example runner and
 Still to do:
 
 - run the real Gemini smoke test once an API key is configured (see §9);
-- decide the reported model (`gemini-3.5-flash` per the presentation) and confirm its free-tier
-  quota before a full run;
+- confirm the quota available for the team default (`gemini-3.6-flash`) before a full run;
 - full-dataset runs and MDS comparison of the baselines against our pipeline;
 - the human-evaluation protocol from the paper, if we replicate it;
 - the prediction-usefulness evaluation of §12;

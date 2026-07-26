@@ -10,6 +10,12 @@ output_file.jsonl
 agentic_output.jsonl
 results/
 
+# IDE / editor configuration -- local to each developer, never shared.
+# NOTE: files already tracked before this rule was added stay tracked until
+# they are removed from the index with `git rm --cached`.
+.idea/
+.vscode/
+
 # Python
 __pycache__/
 *.py[cod]

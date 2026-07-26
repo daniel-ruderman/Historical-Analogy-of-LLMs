@@ -1,11 +1,22 @@
-"""Environment-driven configuration.
+"""Configuration.
 
 Everything that could reasonably change between experiments lives here, so that
 the *method* code never mentions a concrete provider or model name.
 
+Values are resolved in this order:
+
+    1. an environment variable (including anything loaded from a local `.env`)
+    2. :data:`hal.project_defaults.PROJECT_DEFAULTS` -- tracked, shared with the
+       team through Git
+    3. the code-level fallback constants below
+
+So a collaborator who clones the repository gets the project's defaults
+automatically and only has to supply the one thing that must stay local: their
+own ``GEMINI_API_KEY``. Secrets never have a tracked default.
+
 The important variables (see ``.env.example``)::
 
-    GEMINI_API_KEY
+    GEMINI_API_KEY                      (secret -- local `.env` only)
     LLM_PROVIDER / LLM_MODEL
     EMBEDDING_PROVIDER / EMBEDDING_MODEL
     SEARCH_PROVIDER
@@ -23,6 +34,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional
+
+from .project_defaults import SECRET_KEYS, get_project_default
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATASET_DIR = REPO_ROOT / "dataset"
@@ -48,16 +61,15 @@ _ROLE_ENV = {
     "evaluation": "EVALUATION_MODEL",
 }
 
-# Defaults.  These are deliberately *not* hard-coded anywhere else.
-DEFAULT_LLM_PROVIDER = "gemini"
-DEFAULT_EMBEDDING_PROVIDER = "gemini"
-DEFAULT_SEARCH_PROVIDER = "wikipedia"
-
-# NOTE: model availability on the Gemini free tier changes over time; both of
-# these are overridable from the environment and nothing in the code depends on
-# the specific string.
-DEFAULT_LLM_MODEL = "gemini-2.5-flash-lite"
-DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
+# Code-level fallbacks. The values actually used come from
+# hal/project_defaults.py (tracked) unless an environment variable overrides
+# them; these constants only matter if a key is removed from PROJECT_DEFAULTS.
+# The generation model and the embedding model are independent settings.
+DEFAULT_LLM_PROVIDER = get_project_default("LLM_PROVIDER") or "gemini"
+DEFAULT_EMBEDDING_PROVIDER = get_project_default("EMBEDDING_PROVIDER") or "gemini"
+DEFAULT_SEARCH_PROVIDER = get_project_default("SEARCH_PROVIDER") or "wikipedia"
+DEFAULT_LLM_MODEL = get_project_default("LLM_MODEL") or "gemini-3.6-flash"
+DEFAULT_EMBEDDING_MODEL = get_project_default("EMBEDDING_MODEL") or "gemini-embedding-001"
 
 # The paper (Sec. 5.1) runs the baselines with temperature 0.1.
 DEFAULT_TEMPERATURE = 0.1
@@ -66,11 +78,30 @@ DEFAULT_EVAL_TEMPERATURE = 0.0
 
 
 def _env(name: str, default: Optional[str] = None) -> Optional[str]:
+    """Resolve ``name``: environment -> tracked project default -> ``default``."""
     value = os.environ.get(name)
-    if value is None:
-        return default
-    value = value.strip()
-    return value if value else default
+    if value is not None:
+        value = value.strip()
+        if value:
+            return value
+    tracked = get_project_default(name)
+    if tracked is not None:
+        return tracked
+    return default
+
+
+def resolve(name: str, default: Optional[str] = None) -> Optional[str]:
+    """Public form of the resolution order (useful in tests and scripts)."""
+    return _env(name, default)
+
+
+def config_source(name: str) -> str:
+    """Where ``name`` currently comes from: ``env`` / ``project`` / ``fallback``."""
+    if (os.environ.get(name) or "").strip():
+        return "env"
+    if get_project_default(name) is not None:
+        return "project"
+    return "fallback"
 
 
 def _env_int(name: str, default: int) -> int:
@@ -175,6 +206,17 @@ class Settings:
         )
 
 
+def _cache_dir() -> Path:
+    """Cache directory; relative values resolve against the repository root.
+
+    That keeps the tracked ``CACHE_DIR`` default (``.hal_cache``) pointing at
+    the same place regardless of the current working directory.
+    """
+    raw = _env("CACHE_DIR", ".hal_cache") or ".hal_cache"
+    path = Path(raw)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
 def load_settings(**overrides) -> Settings:
     """Build :class:`Settings` from the environment, applying ``overrides``."""
     load_dotenv()
@@ -210,7 +252,7 @@ def load_settings(**overrides) -> Settings:
         retry_max_delay=_env_float("RETRY_MAX_DELAY", 60.0),
         request_delay=_env_float("REQUEST_DELAY", 0.0),
         cache_enabled=_env_bool("CACHE_ENABLED", True),
-        cache_dir=Path(_env("CACHE_DIR", str(REPO_ROOT / ".hal_cache"))),
+        cache_dir=_cache_dir(),
         wiki_lang=_env("WIKI_LANG", "en"),
         api_key=_env("GEMINI_API_KEY") or _env("GOOGLE_API_KEY"),
         gemini_api_surface=_env("GEMINI_API_SURFACE", "auto"),
