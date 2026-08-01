@@ -32,9 +32,10 @@ TABLE OF CONTENTS
   L. Gemini API limits and 429 errors
   M. Caching
   N. Running tests
-  O. What Git shares and what it does not
-  P. Troubleshooting
-  Q. First-time setup checklist
+  O. Automatic evaluation (scoring how good the analogies are)
+  P. What Git shares and what it does not
+  Q. Troubleshooting
+  R. First-time setup checklist
 
 
 ===============================================================================
@@ -130,8 +131,18 @@ Repository root: J:\Historical-Analogy-of-LLMs
         wiki.py              Wikipedia lookups
         json_utils.py        parsing messy JSON that an LLM produced
 
+  automatic_evaluation/
+      OUR evaluation runner (see section O). It does not implement any method
+      of its own -- it calls the ones above and scores their answers:
+        methods.py   maps a method name to the existing implementation
+        runner.py    generate / score / resume / aggregate / write CSV
+
   examples/
-      run_all_methods.py   the main script you will actually run
+      run_all_methods.py            run the methods and look at their answers
+      run_automatic_evaluation.py   score the answers with the paper's metric
+
+  results/
+      Where evaluation output is written. Git-ignored.
 
   tests/
       Automated tests. They use fake models, so they cost no API quota.
@@ -712,7 +723,7 @@ N. RUNNING TESTS
 
     py -m pytest tests -q
 
-There are currently 127 tests and they take a couple of seconds.
+There are currently 157 tests and they take a couple of seconds.
 
 THESE TESTS DO NOT USE YOUR API KEY OR YOUR QUOTA.
 They run against fake ("mock") providers -- small Python classes that pretend
@@ -726,7 +737,221 @@ Run them after changing anything. If they pass, the plumbing is intact.
 
 
 ===============================================================================
-O. WHAT GIT SHARES AND WHAT IT DOES NOT
+O. AUTOMATIC EVALUATION  (scoring how good the analogies are)
+===============================================================================
+
+Running a method tells you WHICH past event it picked. It does not tell you
+whether that was a GOOD pick. The automatic evaluation scores every method's
+answer with the same metric the original paper used, so the seven methods can
+be compared with numbers instead of impressions.
+
+WHAT IT MEASURES
+----------------
+
+The metric is called MDS -- Multi-Dimensional Similarity. It comes from the
+original paper; we did not invent it. For each answer it compares the input
+event and the proposed analogy along the paper's four dimensions:
+
+    Topic       what kind of event is it?
+    Background  what caused it?
+    Process     how did it unfold?
+    Result      what were the consequences?
+
+For each dimension it computes two different things:
+
+  ABSTRACT similarity  ("is the deep structure the same?")
+      An LLM reads both summaries and scores 1 to 4.
+      1 = unrelated, 4 = strongly analogous. HIGHER IS BETTER.
+
+  LITERAL similarity   ("do they just reuse the same words?")
+      Plain word overlap (Jaccard similarity, after removing common words
+      like "the"). No LLM involved -- it is ordinary arithmetic.
+      LOWER IS BETTER.
+
+Why penalise literal similarity? Because "the 2003 Iraq War" is not an
+interesting analogy for "the 1991 Gulf War" merely because both descriptions
+are full of the words "Iraq", "war" and "oil". A good analogy is structurally
+similar while being about different things. So the two are combined as:
+
+    per dimension:  abstract  x  max(alpha - literal, 0)
+    MDS          :  the weighted sum of those over the four dimensions
+
+    weights: Topic 0.5, Background 1, Process 2, Result 2
+    alpha  : 0.35
+
+Process and Result weigh most, because a genuinely useful historical analogy
+has to match how events unfolded and how they ended, not just their subject.
+If literal similarity reaches 0.35 that dimension scores zero: the answer was
+too word-similar to count.
+
+The columns in the results table:
+
+    TAbs TLit TAll   Topic:      abstract / literal / combined
+    BAbs BLit BAll   Background: abstract / literal / combined
+    PAbs PLit PAll   Process:    abstract / literal / combined
+    RAbs RLit RAll   Result:     abstract / literal / combined
+    MDS              the final weighted score (higher = better)
+
+PASS@1  (POPULAR DATASET ONLY)
+------------------------------
+
+The popular dataset has a known "right answer" for each event (its
+target_event field). Pass@1 asks: did the method produce that answer?
+
+It is not raw string comparison. Following the original code, both names are
+searched on Wikipedia and it counts as a hit when the two result lists
+overlap, so aliases and alternative titles still count. (This is a loose rule
+-- related titles can overlap -- but it is the paper's rule, kept as is.)
+
+The general dataset has NO single correct answer, so Pass@1 does not apply
+there and is omitted from the general results.
+
+WHY GEMINI AND NOT GPT-4
+------------------------
+
+The original paper used GPT-4 for the abstract-similarity judging. That is a
+paid OpenAI model we are not using. The judging goes through our normal
+provider setup instead, so it uses the same Gemini configuration as the rest
+of the project. The procedure and the prompts are the paper's; only the model
+behind them changed.
+
+This is configurable and deliberately SEPARATE from the model that produced
+the analogy:
+
+    the model that ANSWERS  ->  LLM_MODEL (or BASELINE_MODEL / role models)
+    the model that JUDGES   ->  EVALUATION_MODEL, which inherits LLM_MODEL
+
+Right now both resolve to the same Gemini model, which is fine. Later you can
+judge with a different model by setting EVALUATION_MODEL, without touching any
+method. Every result file records which model did the judging.
+
+HOW TO RUN IT
+-------------
+
+Tiny check first (2 examples, reduced settings -- NOT research results):
+
+    py examples/run_automatic_evaluation.py --dataset popular --methods agentic --smoke
+
+Every method on the popular dataset:
+
+    py examples/run_automatic_evaluation.py --dataset popular --methods all
+
+Every method on the general dataset:
+
+    py examples/run_automatic_evaluation.py --dataset general --methods all
+
+Both datasets:
+
+    py examples/run_automatic_evaluation.py --dataset all --methods all
+
+Only some methods:
+
+    py examples/run_automatic_evaluation.py --dataset popular --methods direct_generation agentic
+
+Offline check with fake models (no key, no quota, meaningless numbers):
+
+    py examples/run_automatic_evaluation.py --dataset popular --methods all --dry-run
+
+All options:
+
+    py examples/run_automatic_evaluation.py --help
+
+WHERE THE RESULTS GO
+--------------------
+
+    results/automatic_evaluation/
+
+        popular_detailed.jsonl             one row per example per method
+        general_detailed.jsonl
+        automatic_evaluation_popular.csv   summary table, one row per method
+        automatic_evaluation_general.csv
+        generations/                       the raw answers each method produced
+
+Smoke runs write to separate *_smoke files so they can never be mistaken for
+real results. A readable table is also printed to the console at the end.
+
+Each detailed row records the input event, the predicted analogy, every
+component score, Pass@1 where it applies, the generation model, the evaluation
+model, a timestamp and the metric constants used. API keys are never saved.
+
+SPLITTING GENERATION FROM EVALUATION
+------------------------------------
+
+Producing the analogies costs quota, and so does judging them. You can do the
+two separately and never regenerate answers you already have:
+
+    step 1 -- produce and save the answers only:
+        py examples/run_automatic_evaluation.py --dataset popular --methods all --generate
+
+    step 2 -- score the saved answers, without re-running any method:
+        py examples/run_automatic_evaluation.py --dataset popular --methods all --evaluate
+
+With neither flag it does both in one go, which is the normal case.
+
+RESUMING AFTER A QUOTA STOP
+---------------------------
+
+A full run makes many API calls and Gemini may cut you off part-way. That is
+handled: every result is written to disk immediately, so nothing already
+finished is lost. When the provider refuses, the run stops cleanly and says so.
+
+To continue where it stopped, add --resume to the SAME command:
+
+    py examples/run_automatic_evaluation.py --dataset general --methods all --resume
+
+It skips every example/method pair already scored and reuses answers already
+generated. It never overwrites good results because a later call failed.
+
+An example that cannot be scored (no answer produced, or the named event has
+no Wikipedia entry) is recorded with a status instead of a made-up score, and
+is left out of the averages. Failures stay visible.
+
+HOW MUCH QUOTA DOES IT USE?
+---------------------------
+
+Judging ONE answer takes 6 LLM calls:
+
+    2 calls to summarise the two events into the four dimensions
+    4 calls to score abstract similarity (one per dimension)
+
+That is on top of whatever the method itself spent producing the answer, which
+for the agentic pipeline can be dozens of calls. Rough totals before caching:
+
+    popular:  20 examples x 7 methods =  140 answers = ~840 judging calls
+    general: 160 examples x 7 methods = 1120 answers = ~6720 judging calls
+
+Caching helps a lot in practice: the input event's summary is computed once and
+shared by every method, and identical answers are judged once. Start with
+--smoke, and consider evaluating one method at a time.
+
+IMPORTANT -- METHOD ORDER VS THE DAILY CAP
+------------------------------------------
+
+The free tier has a PER-DAY request cap per model (a few hundred requests), not
+just a per-minute one. Methods are evaluated in order, and the agentic pipeline
+is last and by far the most expensive, so "--methods all" tends to spend the
+whole day's quota on the baselines and never reach it.
+
+If you care most about a particular method, RUN IT FIRST, on its own:
+
+    py examples/run_automatic_evaluation.py --dataset popular --methods agentic
+
+then run the rest afterwards (or the next day) -- results accumulate in the
+same files:
+
+    py examples/run_automatic_evaluation.py --dataset popular --methods all --resume
+
+A method that did not run appears in the table as "NOT RUN" with n = 0, and a
+warning lists everything incomplete. Never read a table with mixed n values as
+a fair comparison: those averages cover different numbers of examples.
+
+The cache lives in .hal_cache/ and is keyed by the evaluation model and prompt
+version, so re-running an evaluation you already did is nearly free, and
+switching models never reuses the old model's judgements.
+
+
+===============================================================================
+P. WHAT GIT SHARES AND WHAT IT DOES NOT
 ===============================================================================
 
 SHARED THROUGH GIT (your partner gets these on "git pull"):
@@ -767,7 +992,7 @@ in hal/project_defaults.py, NOT in .env.
 
 
 ===============================================================================
-P. TROUBLESHOOTING
+Q. TROUBLESHOOTING
 ===============================================================================
 
 1. "pip is not recognized as an internal or external command"
@@ -829,7 +1054,19 @@ P. TROUBLESHOOTING
    Comment it out to go back to the shared default.
 
 
-7. The answer text looks cut off, or JSON parsing warnings appear
+7. "[cache warning] ... could not update cache file"
+
+   Harmless. On Windows a virus scanner or the file indexer sometimes holds a
+   file open for a moment, and the cache could not be saved that time. The run
+   continues and the data is kept in memory; the next save normally succeeds.
+   If you see it constantly, add an antivirus exclusion for .hal_cache/, or
+   set CACHE_ENABLED=false in .env (slower and uses more quota).
+
+   If a run is interrupted, stray "*.tmp" files may be left in .hal_cache/.
+   They are safe to delete.
+
+
+8. The answer text looks cut off, or JSON parsing warnings appear
 
    Some models return long answers. You can raise the limit locally by adding
    to .env:
@@ -838,7 +1075,7 @@ P. TROUBLESHOOTING
 
 
 ===============================================================================
-Q. FIRST-TIME SETUP CHECKLIST
+R. FIRST-TIME SETUP CHECKLIST
 ===============================================================================
 
     [ ] Clone or pull the repository

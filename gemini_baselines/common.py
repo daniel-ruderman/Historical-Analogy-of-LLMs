@@ -200,6 +200,26 @@ def get_candidate_details(
 # --------------------------------------------------------------------------
 # Event pool + embeddings (retrieval methods)
 # --------------------------------------------------------------------------
+EMPTY_EVENT_PLACEHOLDER = "(no description available)"
+
+
+def pool_embedding_text(row: Dict[str, Any]) -> str:
+    """Text to embed for one event-pool row.
+
+    Normally ``history_intro_text``, exactly as the original repository embeds
+    it. Seven of the 658 pool rows have an empty description (and one also has
+    an empty title); OpenAI's endpoint accepts an empty input, but the Gemini
+    endpoint rejects it with ``400 ... contains an empty Part``. So we fall back
+    to the event title, and finally to a placeholder, which keeps all 658 rows
+    in the pool instead of silently changing its size.
+    """
+    intro = (row.get("history_intro_text") or "").strip()
+    if intro:
+        return intro
+    title = (row.get("history_event_text") or "").strip()
+    return title or EMPTY_EVENT_PLACEHOLDER
+
+
 def load_pool_with_embeddings(
     context: BaselineContext,
     limit: Optional[int] = None,
@@ -217,7 +237,7 @@ def load_pool_with_embeddings(
     if context.embeddings is None:
         raise ValueError("This method needs an embedding provider (context.embeddings)")
     pool = load_event_pool(limit=limit)
-    texts = [row["history_intro_text"] for row in pool]
+    texts = [pool_embedding_text(row) for row in pool]
     batch_size = 32
     vectors: List[List[float]] = []
     for start in range(0, len(texts), batch_size):

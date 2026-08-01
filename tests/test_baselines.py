@@ -198,6 +198,31 @@ def small_pool(mock_embeddings):
     return pool
 
 
+def test_pool_rows_without_a_description_still_get_embeddable_text():
+    """7 of the 658 pool rows have an empty description; Gemini rejects empty input."""
+    from gemini_baselines.common import EMPTY_EVENT_PLACEHOLDER, pool_embedding_text
+
+    assert pool_embedding_text({"history_intro_text": "a real description"}) == \
+        "a real description"
+    # blank description -> fall back to the title
+    assert pool_embedding_text({"history_intro_text": "  ",
+                                "history_event_text": "Day of the Dead"}) == \
+        "Day of the Dead"
+    # both blank -> placeholder, so the row stays in the pool
+    assert pool_embedding_text({"history_intro_text": "",
+                                "history_event_text": ""}) == EMPTY_EVENT_PLACEHOLDER
+    assert pool_embedding_text({}) == EMPTY_EVENT_PLACEHOLDER
+
+
+def test_real_event_pool_has_no_unembeddable_rows():
+    from gemini_baselines.common import pool_embedding_text
+    from hal.io_utils import load_event_pool
+
+    pool = load_event_pool()
+    assert len(pool) == 658
+    assert all(pool_embedding_text(row).strip() for row in pool)
+
+
 def test_direct_retrieval_picks_the_nearest_pool_event(small_pool, mock_embeddings,
                                                        offline_settings, sample_event):
     from gemini_baselines import direct_retrieval

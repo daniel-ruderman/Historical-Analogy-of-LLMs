@@ -160,6 +160,85 @@ def test_cached_embedding_batch_only_fetches_missing(offline_settings):
     assert inner.calls == calls_after_first + 1
 
 
+def test_set_many_writes_the_file_once(tmp_path, monkeypatch):
+    """Batch writes keep pool embedding O(n) instead of O(n^2)."""
+    cache = JsonCache(tmp_path, "batch")
+    writes = {"n": 0}
+    real_flush = cache._flush
+
+    def counting_flush(data):
+        writes["n"] += 1
+        real_flush(data)
+
+    monkeypatch.setattr(cache, "_flush", counting_flush)
+    cache.set_many({f"k{i}": i for i in range(50)})
+    assert writes["n"] == 1
+    assert len(JsonCache(tmp_path, "batch")) == 50
+
+
+def test_embedding_batch_writes_once_not_once_per_vector(tmp_path, offline_settings,
+                                                         monkeypatch):
+    inner = MockEmbeddingProvider()
+    cached = CachedEmbeddingProvider(inner, settings=offline_settings)
+    writes = {"n": 0}
+    real_flush = cached.cache._store._flush
+
+    def counting_flush(data):
+        writes["n"] += 1
+        real_flush(data)
+
+    monkeypatch.setattr(cached.cache._store, "_flush", counting_flush)
+    cached.embed_batch([f"text-{i}" for i in range(32)])
+    assert writes["n"] == 1
+
+
+def test_cache_write_failure_is_not_fatal(tmp_path, monkeypatch, capsys):
+    """A locked cache file (Windows WinError 32) must not kill a run."""
+    import hal.cache as cache_module
+
+    cache = JsonCache(tmp_path, "locked")
+
+    def always_locked(src, dst):
+        raise PermissionError(32, "The process cannot access the file")
+
+    monkeypatch.setattr(cache_module.os, "replace", always_locked)
+    monkeypatch.setattr(cache_module.time, "sleep", lambda _s: None)
+
+    cache.set("k", "v")                       # must not raise
+    assert cache.get("k") == "v"              # value still usable in memory
+    assert "cache warning" in capsys.readouterr().out
+    assert list(tmp_path.glob("*.tmp")) == []  # no stray temp files left behind
+
+
+def test_cache_write_recovers_after_a_transient_lock(tmp_path, monkeypatch):
+    import hal.cache as cache_module
+
+    cache = JsonCache(tmp_path, "transient")
+    real_replace = cache_module.os.replace
+    calls = {"n": 0}
+
+    def flaky_replace(src, dst):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise PermissionError(32, "locked")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(cache_module.os, "replace", flaky_replace)
+    monkeypatch.setattr(cache_module.time, "sleep", lambda _s: None)
+
+    cache.set("k", "v")
+    assert JsonCache(tmp_path, "transient").get("k") == "v"   # persisted on retry
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_successful_write_leaves_no_temp_file(tmp_path):
+    cache = JsonCache(tmp_path, "clean")
+    cache.set_many({"a": 1})
+    cache.set_many({"b": 2})
+    assert list(tmp_path.glob("*.tmp")) == []
+    assert len(JsonCache(tmp_path, "clean")) == 2
+
+
 # --- mock LLM behaviour ---------------------------------------------------
 def test_mock_llm_honours_stop_sequences():
     llm = MockLLMProvider(responses=["Spanish flu\nsomething else"])

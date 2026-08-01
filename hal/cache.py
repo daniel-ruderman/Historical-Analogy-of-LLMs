@@ -16,14 +16,24 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import threading
+import time
+import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 
 def _hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _unlink_quietly(path: Path) -> None:
+    try:
+        path.unlink()
+    except OSError:
+        pass
 
 
 def _slug(text: str) -> str:
@@ -40,6 +50,7 @@ class JsonCache:
         self.enabled = enabled
         self._lock = threading.Lock()
         self._data: Optional[Dict[str, Any]] = None
+        self._warned = False
 
     @property
     def path(self) -> Path:
@@ -63,15 +74,61 @@ class JsonCache:
             return self._load().get(key, default)
 
     def set(self, key: str, value: Any) -> None:
-        if not self.enabled:
+        """Store one entry (rewrites the file -- prefer :meth:`set_many` in loops)."""
+        self.set_many({key: value})
+
+    def set_many(self, items: Dict[str, Any]) -> None:
+        """Store several entries with a single write.
+
+        The whole namespace is one JSON document, so writing once per batch
+        instead of once per item turns an O(n^2) write pattern into O(n) -- it
+        matters when the 658-event embedding pool is cached.
+        """
+        if not self.enabled or not items:
             return
         with self._lock:
             data = self._load()
-            data[key] = value
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = self.path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-            tmp.replace(self.path)
+            data.update(items)
+            self._flush(data)
+
+    def _flush(self, data: Dict[str, Any]) -> None:
+        """Write the namespace atomically; never raise.
+
+        The cache is an optimisation, so a write failure must not kill a
+        research run: the data stays in memory and the next flush retries.
+        On Windows ``os.replace`` intermittently fails with ``WinError 32``
+        when a virus scanner or indexer momentarily holds the file, hence the
+        retries and the per-write unique temporary name.
+        """
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(data, ensure_ascii=False)
+        tmp = self.path.with_name(f"{self.path.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+        try:
+            tmp.write_text(payload, encoding="utf-8")
+        except OSError as exc:
+            self._warn(f"could not write cache file: {exc}")
+            _unlink_quietly(tmp)
+            return
+
+        last_error: Optional[BaseException] = None
+        for attempt in range(5):
+            try:
+                os.replace(tmp, self.path)
+                return
+            except PermissionError as exc:      # Windows: file transiently locked
+                last_error = exc
+                time.sleep(0.1 * (2 ** attempt))
+            except OSError as exc:
+                last_error = exc
+                break
+        _unlink_quietly(tmp)
+        self._warn(f"could not update cache file ({last_error}); "
+                   "continuing without persisting this batch")
+
+    def _warn(self, message: str) -> None:
+        if not self._warned:
+            self._warned = True
+            print(f"    [cache warning] {self.path.name}: {message}")
 
     def __contains__(self, key: str) -> bool:
         return self.enabled and key in self._load()
@@ -107,6 +164,10 @@ class EmbeddingCache:
 
     def set(self, text: str, vector: List[float]) -> None:
         self._store.set(_hash(text), list(vector))
+
+    def set_many(self, pairs: Sequence[Tuple[str, List[float]]]) -> None:
+        """Store several vectors with one file write (used for batch embedding)."""
+        self._store.set_many({_hash(text): list(vector) for text, vector in pairs})
 
     def __len__(self) -> int:
         return len(self._store)

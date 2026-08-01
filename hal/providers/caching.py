@@ -59,9 +59,10 @@ class CachedEmbeddingProvider(EmbeddingProvider):
         if missing_texts:
             vectors = self.inner.embed_batch(missing_texts)
             self.api_calls += len(missing_texts)
-            for index, text, vector in zip(missing_indices, missing_texts, vectors):
-                self.cache.set(text, vector)
+            for index, vector in zip(missing_indices, vectors):
                 results[index] = vector
+            # One write per batch rather than one per vector.
+            self.cache.set_many(list(zip(missing_texts, vectors)))
         return [vector or [] for vector in results]
 
     def stats(self) -> dict:

@@ -269,6 +269,13 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
 
     def _embed_contents(self, contents: List[str]) -> List[List[float]]:
         _, types = _import_genai()
+        blank = [i for i, text in enumerate(contents) if not (text or "").strip()]
+        if blank:
+            # The API rejects an empty Part with an opaque 400; say what is wrong.
+            raise ProviderError(
+                f"cannot embed empty text (item(s) {blank} of {len(contents)}). "
+                "Provide a non-empty string -- e.g. fall back to the event title."
+            )
 
         def _call():
             config = self._config(types)

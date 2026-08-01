@@ -567,8 +567,14 @@ agentic_pipeline/              OUR new method
   final_summarizer.py          Final Summarizer
   pipeline.py                  the refinement loop + CLI
 
+automatic_evaluation/          the automatic-evaluation runner (no method logic)
+  methods.py                   maps a method name to its existing implementation
+  runner.py                    generate / score / resume / aggregate / CSV
+
 examples/run_all_methods.py    runs all six baselines + our pipeline on one dataset example
-tests/                         100 tests, all offline
+examples/run_automatic_evaluation.py
+                               scores all seven methods with the paper's MDS + Pass@1
+tests/                         157 tests, all offline
 ```
 
 **Unchanged original files:** `framework/**`, `evaluation.py`, `dataset/**`, `README.md`,
@@ -617,6 +623,51 @@ analogies improve forecasting: generate analogies with each method, ask the same
 an outcome with and without them, and score with Brier/log score. To avoid data leakage from
 resolved historical questions, this must use *unresolved* forecasting questions (ForecastBench,
 Metaculus FutureEval), recording predictions before resolution. Not part of this codebase yet.
+
+### 12.1 The automatic evaluation runner
+
+`automatic_evaluation/` + `examples/run_automatic_evaluation.py` apply the paper's automatic
+evaluation to all seven methods. The metric lives in `gemini_baselines/evaluation_mds.py` (our
+port of `evaluation.py`); the runner only orchestrates.
+
+**Faithfulness to `evaluation.py`.** Same four dimensions; same two-template
+`extract_features` (the second template uses the already-summarised input event as the in-context
+example); same 1–4 abstract-similarity prompt and integer parsing; same `jacc` (NLTK tokenize →
+stop-word removal → Jaccard over token *sets*); same aggregation, including the fact that the
+per-dimension `*All` value is `abstract × max(α − literal, 0)` **without** the weight, while the
+weights enter only in the final sum:
+
+```
+MDS = 0.5·T_All + 1·B_All + 2·P_All + 2·R_All        α = 0.35
+```
+
+Pass@1 uses the original's rule — Wikipedia *search* both the reference and the produced name and
+count a hit when the result sets intersect — not string equality. It is reported for the popular
+set only; the general set has no reference answer.
+
+**Separation of concerns.** The runner never re-implements a method: `automatic_evaluation/
+methods.py` dispatches to the existing `gemini_baselines` functions and to
+`AgenticAnalogyPipeline`. The agentic pipeline is scored on its **final winning analogy** only;
+its ranking, round count and candidate history are stored as metadata and are excluded from the
+metric, so all seven methods pass through an identical scoring path.
+
+**Two independent models.** The model that *produces* an analogy (`LLM_MODEL` / `BASELINE_MODEL`)
+and the model that *judges* it (`EVALUATION_MODEL`, inheriting `LLM_MODEL`) are configured
+separately and both are recorded in every result row. MDS values are only comparable across
+methods judged by the same model.
+
+**Deviations, all infrastructural.** The judge is a configurable provider (Gemini by default)
+rather than GPT-4 — abstract-similarity scores are therefore not numerically comparable with the
+paper's tables, though the procedure is identical. Where `evaluation.py` raises inside `wiki()`
+for an unresolvable event, we record a status (`no_analogy` / `unresolved_event`) and exclude the
+sample from the averages instead of aborting the batch; such samples still count as Pass@1
+misses, matching the original's division by `len(dataset)`. A failed API call is never given a
+fabricated score.
+
+**Cost.** Judging one answer costs exactly 6 LLM calls (2 dimension summaries + 4 abstract
+similarities). Results are cached in `.hal_cache/evaluation_mds.json`, keyed by the evaluation
+model and a `PROMPT_VERSION` string, so the input event's summary is computed once and shared
+across all seven methods and identical answers are judged once. The cache cannot change a score.
 
 ## 13. Status and next steps
 
