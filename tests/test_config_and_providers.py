@@ -239,6 +239,64 @@ def test_successful_write_leaves_no_temp_file(tmp_path):
     assert len(JsonCache(tmp_path, "clean")) == 2
 
 
+# --- reasoning models (Gemma 4) -------------------------------------------
+def test_empty_answer_from_an_exhausted_token_budget_raises(offline_settings):
+    """A reasoning model can burn the whole budget on thinking and return ''.
+
+    Returning that empty string silently would corrupt a run, so it must fail.
+    """
+    from types import SimpleNamespace
+
+    from hal.providers.gemini import GeminiLLMProvider
+
+    class Models:
+        def generate_content(self, **kwargs):
+            return SimpleNamespace(
+                text="",
+                candidates=[SimpleNamespace(finish_reason="MAX_TOKENS",
+                                            content=None)],
+                usage_metadata=SimpleNamespace(thoughts_token_count=61,
+                                               candidates_token_count=None),
+            )
+
+    provider = GeminiLLMProvider(
+        model="gemma-4-31b-it",
+        settings=Settings(api_key="k", max_output_tokens=64, max_retries=0),
+        client=SimpleNamespace(models=Models()),
+    )
+    with pytest.raises(ProviderError) as excinfo:
+        provider.generate("prompt")
+    message = str(excinfo.value)
+    assert "MAX_OUTPUT_TOKENS" in message
+    assert "61 tokens went to internal reasoning" in message
+
+
+def test_normal_empty_answer_is_not_turned_into_an_error(offline_settings):
+    """An empty answer with a normal finish reason stays an empty answer."""
+    from types import SimpleNamespace
+
+    from hal.providers.gemini import GeminiLLMProvider
+
+    class Models:
+        def generate_content(self, **kwargs):
+            return SimpleNamespace(
+                text="", candidates=[SimpleNamespace(finish_reason="STOP",
+                                                     content=None)],
+                usage_metadata=None)
+
+    provider = GeminiLLMProvider(
+        model="gemma-4-31b-it", settings=Settings(api_key="k"),
+        client=SimpleNamespace(models=Models()))
+    assert provider.generate("prompt") == ""
+
+
+def test_default_token_budget_leaves_room_for_thinking():
+    """Reasoning models need headroom: thinking tokens count against the budget."""
+    from hal.project_defaults import PROJECT_DEFAULTS
+
+    assert int(PROJECT_DEFAULTS["MAX_OUTPUT_TOKENS"]) >= 2048
+
+
 # --- mock LLM behaviour ---------------------------------------------------
 def test_mock_llm_honours_stop_sequences():
     llm = MockLLMProvider(responses=["Spanish flu\nsomething else"])

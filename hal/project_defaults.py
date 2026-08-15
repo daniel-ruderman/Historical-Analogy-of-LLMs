@@ -44,12 +44,20 @@ PROJECT_DEFAULTS: Dict[str, str] = {
     # --- models ------------------------------------------------------------
     # The generation model and the embedding model are configured
     # independently: changing one does not imply changing the other.
-    "LLM_MODEL": "gemini-3.5-flash-lite",
-    "EMBEDDING_MODEL": "gemini-embedding-001",
+    #
+    # Gemma 4 is served through the same Gemini API and the same API key.
+    # The free-tier daily request cap is per project *per model*
+    # (quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier), so a Gemma
+    # model draws from its own bucket, separate from the gemini-* models.
+    # Alternative served to this project: "gemma-4-26b-a4b-it" (mixture of
+    # experts, ~4B active parameters -> faster; same API surface).
+    # NOTE: Gemma 4 is a *reasoning* model -- see MAX_OUTPUT_TOKENS below.
+    "LLM_MODEL": "gemma-4-31b-it",
+    "EMBEDDING_MODEL": "gemini-embedding-001",   # Gemma serves no embeddings
 
     # Per-role models are intentionally absent: each role falls back to
     # LLM_MODEL. To pin one for the whole team, add it here, e.g.
-    #     "JUDGE_MODEL": "gemini-3.5-flash-lite",
+    #     "JUDGE_MODEL": "gemma-4-31b-it",
     # Recognised keys: GENERATOR_MODEL, CRITIC_MODEL, ANTI_ANALOGY_MODEL,
     # JUDGE_MODEL, SUMMARIZER_MODEL, BASELINE_MODEL, EVALUATION_MODEL.
 
@@ -68,7 +76,11 @@ PROJECT_DEFAULTS: Dict[str, str] = {
     "LLM_TEMPERATURE": "0.1",
     # The original evaluation.py uses an effectively greedy judge.
     "EVALUATION_TEMPERATURE": "0.0",
-    "MAX_OUTPUT_TOKENS": "2048",
+    # Reasoning models spend output tokens on internal thinking BEFORE the
+    # answer, and this budget covers both. Measured: Gemma 4 uses ~300 thinking
+    # tokens even for a one-line answer, so a small budget yields an empty
+    # response. 4096 leaves room for thinking plus the long JSON the agents emit.
+    "MAX_OUTPUT_TOKENS": "4096",
 
     # --- quota / robustness ------------------------------------------------
     "MAX_RETRIES": "5",

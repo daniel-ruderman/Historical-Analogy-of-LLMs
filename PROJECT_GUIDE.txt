@@ -181,7 +181,7 @@ There are two places a setting can come from:
 
          PROJECT_DEFAULTS = {
              "LLM_PROVIDER":       "gemini",
-             "LLM_MODEL":          "gemini-3.5-flash-lite",
+             "LLM_MODEL":          "gemma-4-31b-it",
              "EMBEDDING_PROVIDER": "gemini",
              "EMBEDDING_MODEL":    "gemini-embedding-001",
              "REFINEMENT_ROUNDS":  "2",
@@ -271,7 +271,7 @@ holds NO real key -- the key line is deliberately left empty:
 
 Everything else in .env.example is COMMENTED OUT, like this:
 
-    # LLM_MODEL=gemini-3.5-flash-lite
+    # LLM_MODEL=gemma-4-31b-it
     # REFINEMENT_ROUNDS=2
 
 That is on purpose. Those lines are only there to show you what you COULD
@@ -299,9 +299,9 @@ CONCRETE EXAMPLE
 
 Suppose hal/project_defaults.py contains:
 
-    "LLM_MODEL": "gemini-3.5-flash-lite",
+    "LLM_MODEL": "gemma-4-31b-it",
 
-Then EVERYONE who pulls the repository uses gemini-3.5-flash-lite. You and your
+Then EVERYONE who pulls the repository uses gemma-4-31b-it. You and your
 partner are running the same experiment. Good.
 
 Now suppose you instead put this line in YOUR .env:
@@ -309,7 +309,7 @@ Now suppose you instead put this line in YOUR .env:
     LLM_MODEL=some-other-model
 
 Then ONLY YOUR COMPUTER uses that model. Your partner still uses
-gemini-3.5-flash-lite, because .env is never pushed. If you forget about that line,
+gemma-4-31b-it, because .env is never pushed. If you forget about that line,
 the two of you will silently be running different experiments and comparing
 incomparable results.
 
@@ -337,7 +337,7 @@ Edit this file:
 
 Find this line:
 
-    "LLM_MODEL": "gemini-3.5-flash-lite",
+    "LLM_MODEL": "gemma-4-31b-it",
 
 Change the value, save, then:
 
@@ -372,7 +372,7 @@ CURRENT DEFAULT
 ---------------
 
     LLM_PROVIDER      = gemini
-    LLM_MODEL         = gemini-3.5-flash-lite
+    LLM_MODEL         = gemma-4-31b-it
     EMBEDDING_PROVIDER= gemini
     EMBEDDING_MODEL   = gemini-embedding-001
 
@@ -679,6 +679,43 @@ HOW TO USE LESS QUOTA WHILE DEVELOPING:
 
 Quota amounts change over time, so check your current limits in Google AI
 Studio rather than trusting a number written down somewhere.
+
+THE DAILY CAP IS PER MODEL
+--------------------------
+
+The free-tier daily request cap is counted PER PROJECT PER MODEL (the error
+names quotaId "GenerateRequestsPerDayPerProjectPerModel-FreeTier"). So if you
+exhaust one model for the day, switching LLM_MODEL to a DIFFERENT model gives
+you a fresh daily bucket immediately. That was verified: Gemma kept answering
+while gemini-3.5-flash-lite was refusing with 429.
+
+This is a practical lever when you run out mid-experiment -- but be careful for
+research: results produced by two different models are NOT comparable. Finish a
+whole experiment on one model, or record which model produced which rows (the
+evaluation output already stores generation_model and evaluation_model per row).
+
+ABOUT THE DEFAULT MODEL (Gemma 4)
+---------------------------------
+
+The project default is gemma-4-31b-it, an open Gemma 4 model served through the
+same Gemini API with the same API key. Two things to know:
+
+  * It is a REASONING model. It spends output tokens "thinking" before writing
+    the answer, and MAX_OUTPUT_TOKENS covers thinking + answer together.
+    Measured: ~300 thinking tokens even for a one-line answer. If the budget
+    runs out during thinking you get an EMPTY answer, so the project default is
+    MAX_OUTPUT_TOKENS=4096. If you ever see an error about the token budget
+    being exhausted, raise it rather than lowering it.
+
+  * It is noticeably SLOWER per call than the gemini flash models, because of
+    those thinking tokens. A full agentic run takes a while; be patient, and
+    prefer --smoke while developing.
+
+  The faster alternative served to this project is gemma-4-26b-a4b-it (a
+  mixture-of-experts model, ~4B active parameters). Switch with:
+      LLM_MODEL=gemma-4-26b-a4b-it        (in .env, local only)
+  Embeddings are unaffected -- Gemma serves no embedding model, so
+  EMBEDDING_MODEL stays gemini-embedding-001.
 
 
 ===============================================================================

@@ -63,6 +63,29 @@ def _make_client(settings: Settings):
     return genai.Client(api_key=api_key)
 
 
+def _raise_if_truncated(response: Any, model: str, max_output_tokens: int) -> None:
+    """Turn an empty answer caused by an exhausted token budget into a real error.
+
+    Reasoning ("thinking") models -- the Gemma 4 family among them -- spend
+    output tokens on internal reasoning before emitting any text, and
+    ``max_output_tokens`` covers *both*. When the budget runs out first the API
+    returns a candidate with no text and ``finish_reason=MAX_TOKENS``. Returning
+    "" there would silently corrupt a run, so fail loudly with a fix.
+    """
+    reason = _finish_reason(response)
+    if "MAX_TOKENS" not in reason.upper():
+        return
+    usage = getattr(response, "usage_metadata", None)
+    thoughts = getattr(usage, "thoughts_token_count", None) if usage else None
+    detail = f" ({thoughts} tokens went to internal reasoning)" if thoughts else ""
+    raise ProviderError(
+        f"{model} returned no text: the output token budget "
+        f"({max_output_tokens}) was exhausted before any answer was produced"
+        f"{detail}. Raise MAX_OUTPUT_TOKENS -- reasoning models need headroom "
+        f"for thinking tokens on top of the answer."
+    )
+
+
 def _safety_settings(types) -> Optional[list]:
     try:
         return [
@@ -71,6 +94,16 @@ def _safety_settings(types) -> Optional[list]:
         ]
     except Exception:  # pragma: no cover - category names may change
         return None
+
+
+def _finish_reason(response: Any) -> str:
+    """The first candidate's finish reason as a plain string ("" if unknown)."""
+    candidates = getattr(response, "candidates", None) or []
+    for candidate in candidates:
+        reason = getattr(candidate, "finish_reason", None)
+        if reason is not None:
+            return str(reason)
+    return ""
 
 
 def _response_text(response: Any) -> str:
@@ -192,7 +225,10 @@ class GeminiLLMProvider(LLMProvider):
         response = self.client.models.generate_content(
             model=self.model, contents=prompt, config=config
         )
-        return _response_text(response)
+        text = _response_text(response)
+        if not text.strip():
+            _raise_if_truncated(response, self.model, max_output_tokens)
+        return text
 
     def _generate_interactions(self, prompt, stop, temperature, max_output_tokens,
                                system, json_output) -> str:
