@@ -1,0 +1,20 @@
+{"dataset": "popular", "index": 0, "event_name": "Arab Spring", "timestamp": "2026-08-01T19:27:22+00:00", "analogy_event": "Revolutions of 1848", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 1, "event_name": "Trump administration migrant detentions", "timestamp": "2026-08-01T19:27:36+00:00", "analogy_event": "Japanese American internment", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 2, "event_name": "Russian Revolution", "timestamp": "2026-08-01T19:30:41+00:00", "analogy_event": "French Revolution", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 3, "event_name": "Russian interference in the 2016 United States elections", "timestamp": "2026-08-01T19:31:24+00:00", "analogy_event": "Zinoviev Letter", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 4, "event_name": "China–United States trade war", "timestamp": "2026-08-01T19:36:43+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 5, "event_name": "Cuban Missile Crisis", "timestamp": "2026-08-01T19:38:41+00:00", "analogy_event": "July Crisis", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 6, "event_name": "September 11 attacks", "timestamp": "2026-08-01T19:40:57+00:00", "analogy_event": "Pearl Harbor", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 7, "event_name": "2011 Egyptian revolution", "timestamp": "2026-08-01T19:43:39+00:00", "analogy_event": "French Revolution", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 8, "event_name": "2023 Hamas-led attack on Israel", "timestamp": "2026-08-01T19:46:51+00:00", "analogy_event": "9/11 attacks", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 9, "event_name": "Great Recession", "timestamp": "2026-08-01T19:49:14+00:00", "analogy_event": "Great Depression", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 10, "event_name": "Kosovo War", "timestamp": "2026-08-01T19:52:38+00:00", "analogy_event": "Bangladesh Liberation War", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 11, "event_name": "2004 Madrid train bombings", "timestamp": "2026-08-01T19:55:54+00:00", "analogy_event": "September 11 attacks", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 12, "event_name": "Charlie Hebdo shooting", "timestamp": "2026-08-01T19:57:47+00:00", "analogy_event": "Historical Analogy Bot", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 13, "event_name": "Legalization of non-medical cannabis in the United States", "timestamp": "2026-08-01T19:59:21+00:00", "analogy_event": "Prohibition of alcohol in the United States", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 14, "event_name": "Artificial intelligence", "timestamp": "2026-08-01T20:02:15+00:00", "analogy_event": "Industrial Revolution", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 15, "event_name": "Trumpism", "timestamp": "2026-08-01T20:05:12+00:00", "analogy_event": "Fascism", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 16, "event_name": "War in Afghanistan (2001–2021)", "timestamp": "2026-08-01T20:07:35+00:00", "analogy_event": "Vietnam War", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 17, "event_name": "Lebanon hostage crisis", "timestamp": "2026-08-01T20:07:47+00:00", "analogy_event": "Iran hostage crisis", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 18, "event_name": "Space colonization", "timestamp": "2026-08-01T20:08:03+00:00", "analogy_event": "Age of Discovery / European colonization of the Americas", "candidate": [], "extra": {}}
+{"dataset": "popular", "index": 19, "event_name": "Iraq War", "timestamp": "2026-08-01T20:10:16+00:00", "analogy_event": "Vietnam War", "candidate": [], "extra": {}}

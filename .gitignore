@@ -4,11 +4,7 @@
 # Caches produced by our extension (embeddings, Wikipedia pages)
 .hal_cache/
 
-# Run outputs
-output.jsonl
-output_file.jsonl
-agentic_output.jsonl
-results/
+
 
 # IDE / editor configuration -- local to each developer, never shared.
 # NOTE: files already tracked before this rule was added stay tracked until

@@ -1,0 +1,8 @@
+method,method_label,n_evaluated,n_attempted,TAbs,TLit,TAll,BAbs,BLit,BAll,PAbs,PLit,PAll,RAbs,RLit,RAll,MDS,Pass@1,generation_model,evaluation_model
+direct_retrieval,Direct Retrieval,20,20,2.25,0.1179,0.4881,2.55,0.0802,0.66,2.3,0.0849,0.6198,2.5,0.0858,0.6632,3.47,0.4,gemma-4-31b-it,gemma-4-31b-it
+twostage_retrieval,Two-stage Retrieval,20,20,2.8,0.1151,0.6053,2.9,0.0835,0.7524,2.7,0.0694,0.761,2.65,0.0861,0.6764,3.9299,0.55,gemma-4-31b-it,gemma-4-31b-it
+direct_generation,Direct Generation,20,20,3.1,0.113,0.6951,3.0,0.0922,0.7628,2.65,0.0722,0.7435,2.55,0.0783,0.6745,3.9462,0.6,gemma-4-31b-it,gemma-4-31b-it
+twostage_generation,Two-stage Generation,18,20,2.2222,0.0909,0.5457,2.1667,0.0973,0.5228,2.0556,0.0645,0.5806,2.0,0.0641,0.5706,3.0981,0.1,gemma-4-31b-it,gemma-4-31b-it
+summary_generation,Generation with Summarizing,20,20,3.15,0.1263,0.6707,2.9,0.1083,0.6679,2.8,0.0817,0.7364,2.55,0.0956,0.6162,3.7083,0.4,gemma-4-31b-it,gemma-4-31b-it
+reflection_generation,Self-reflection,20,20,3.35,0.1143,0.77,3.1,0.1066,0.7429,3.0,0.0865,0.7824,2.85,0.0987,0.6844,4.0613,0.35,gemma-4-31b-it,gemma-4-31b-it
+agentic,Our Agentic Pipeline,17,20,3.1176,0.1064,0.7273,3.0588,0.1089,0.7041,2.9412,0.0787,0.7908,2.8824,0.0875,0.7303,4.1099,0.25,gemma-4-31b-it,gemma-4-31b-it

@@ -1,0 +1,160 @@
+{"dataset": "general", "index": 0, "event_name": "Western Front", "timestamp": "2026-08-03T00:47:06+00:00", "analogy_event": "Western Front (World War I)", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 1, "event_name": "Battle of Nieuwpoort", "timestamp": "2026-08-03T00:50:54+00:00", "analogy_event": "Battle of Rocroi", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 2, "event_name": "September 11 attacks", "timestamp": "2026-08-03T00:53:17+00:00", "analogy_event": "Pearl Harbor", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 3, "event_name": "Battle of Princeton", "timestamp": "2026-08-03T00:56:40+00:00", "analogy_event": "Battle of the Marne", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 4, "event_name": "Irish Free State offensive", "timestamp": "2026-08-03T01:00:47+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 5, "event_name": "Battle of Curupayty", "timestamp": "2026-08-03T01:03:38+00:00", "analogy_event": "Battle of Agincourt", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 6, "event_name": "Invasion of Normandy", "timestamp": "2026-08-03T01:06:04+00:00", "analogy_event": "Gallipoli Campaign", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 7, "event_name": "War of Canudos", "timestamp": "2026-08-03T01:08:40+00:00", "analogy_event": "Taiping Rebellion", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 8, "event_name": "Gunfight at the O.K. Corral", "timestamp": "2026-08-03T01:10:30+00:00", "analogy_event": "The Hamilton-Burr Duel", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 9, "event_name": "Dutch intervention in Lombok and Karangasem", "timestamp": "2026-08-03T01:12:58+00:00", "analogy_event": "Anglo-Zulu War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 10, "event_name": "Occupation of the Baltic states", "timestamp": "2026-08-03T01:15:42+00:00", "analogy_event": "Partition of Poland (1939)", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 11, "event_name": "Indo-Pakistani War of 1965", "timestamp": "2026-08-03T01:18:44+00:00", "analogy_event": "First Indo-Pakistani War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 12, "event_name": "Battle of the Yellow Sea", "timestamp": "2026-08-03T01:22:09+00:00", "analogy_event": "Battle of Trafalgar", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 13, "event_name": "Second Quebec Conference", "timestamp": "2026-08-03T01:24:49+00:00", "analogy_event": "Yalta Conference", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 14, "event_name": "Battle of Taegu", "timestamp": "2026-08-03T01:25:41+00:00", "analogy_event": "Battle of the Bulge", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 15, "event_name": "Laotian Civil War", "timestamp": "2026-08-03T01:29:58+00:00", "analogy_event": "Greek Civil War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 16, "event_name": "Second Matabele War", "timestamp": "2026-08-03T01:33:34+00:00", "analogy_event": "Indian Rebellion of 1857", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 17, "event_name": "Battle of the Falkland Islands", "timestamp": "2026-08-03T01:37:17+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 18, "event_name": "Battle of Marciano", "timestamp": "2026-08-03T01:39:01+00:00", "analogy_event": "Battle of Hastings", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 19, "event_name": "Afghanistan conflict", "timestamp": "2026-08-03T01:41:48+00:00", "analogy_event": "Vietnam War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 20, "event_name": "Prague uprising", "timestamp": "2026-08-03T01:43:53+00:00", "analogy_event": "Warsaw Uprising", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 21, "event_name": "Scuttling of the German fleet at Scapa Flow", "timestamp": "2026-08-03T01:44:14+00:00", "analogy_event": "Scuttling of the French fleet at Toulon", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 22, "event_name": "Battle of Amiens", "timestamp": "2026-08-03T01:46:18+00:00", "analogy_event": "Battle of Normandy (D-Day)", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 23, "event_name": "Spring Offensive", "timestamp": "2026-08-03T01:48:33+00:00", "analogy_event": "Battle of the Bulge", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 24, "event_name": "Battle of Khe Sanh", "timestamp": "2026-08-03T01:48:45+00:00", "analogy_event": "Battle of Dien Bien Phu", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 25, "event_name": "Battle of Hohenlinden", "timestamp": "2026-08-03T01:49:34+00:00", "analogy_event": "Battle of Marengo", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 26, "event_name": "Iraq War", "timestamp": "2026-08-03T01:52:09+00:00", "analogy_event": "Vietnam War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 27, "event_name": "Manstein Plan", "timestamp": "2026-08-03T01:54:38+00:00", "analogy_event": "Hannibal's crossing of the Alps", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 28, "event_name": "Russo-Japanese War", "timestamp": "2026-08-03T01:57:23+00:00", "analogy_event": "Franco-Prussian War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 29, "event_name": "Spanish Civil War", "timestamp": "2026-08-03T02:00:05+00:00", "analogy_event": "Russian Civil War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 30, "event_name": "French Fury", "timestamp": "2026-08-03T02:02:21+00:00", "analogy_event": "Spanish Fury", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 31, "event_name": "Communist uprising of 1935", "timestamp": "2026-08-03T02:05:37+00:00", "analogy_event": "Spartacist Uprising", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 32, "event_name": "Six-Day War", "timestamp": "2026-08-03T02:08:39+00:00", "analogy_event": "Franco-Prussian War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 33, "event_name": "Normandy Campaign", "timestamp": "2026-08-03T02:11:33+00:00", "analogy_event": "Gallipoli Campaign", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 34, "event_name": "Great Patriotic War", "timestamp": "2026-08-03T02:14:04+00:00", "analogy_event": "Napoleonic Wars (specifically the Patriotic War of 1812)", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 35, "event_name": "Operation Diadem", "timestamp": "2026-08-03T02:17:39+00:00", "analogy_event": "Battle of the Somme", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 36, "event_name": "NATO bombing of Yugoslavia", "timestamp": "2026-08-03T02:20:36+00:00", "analogy_event": "", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 37, "event_name": "Battle of the Bulge", "timestamp": "2026-08-03T02:20:55+00:00", "analogy_event": "Battle of Gettysburg", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 38, "event_name": "First Italian War of Independence", "timestamp": "2026-08-03T02:23:14+00:00", "analogy_event": "Hungarian Revolution of 1848", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 39, "event_name": "Battle of Hasselt", "timestamp": "2026-08-03T02:27:17+00:00", "analogy_event": "Battle of Sedan", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 40, "event_name": "First Sino-Japanese War", "timestamp": "2026-08-03T02:29:41+00:00", "analogy_event": "Franco-Prussian War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 41, "event_name": "Liberation of France", "timestamp": "2026-08-03T02:32:26+00:00", "analogy_event": "Peninsular War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 42, "event_name": "Yugoslav Wars", "timestamp": "2026-08-03T02:35:35+00:00", "analogy_event": "Dissolution of the Soviet Union", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 43, "event_name": "Operation Plunder", "timestamp": "2026-08-03T02:38:40+00:00", "analogy_event": "Operation Overlord", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 44, "event_name": "Boer Wars", "timestamp": "2026-08-03T02:39:19+00:00", "analogy_event": "American Revolutionary War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 45, "event_name": "Siege of Tobruk", "timestamp": "2026-08-03T02:42:24+00:00", "analogy_event": "", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 46, "event_name": "Wars of the Three Kingdoms", "timestamp": "2026-08-03T02:43:02+00:00", "analogy_event": "French Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 47, "event_name": "Centennial Olympic Park bombing", "timestamp": "2026-08-03T02:46:06+00:00", "analogy_event": "Boston Marathon bombing", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 48, "event_name": "Battle of El Guettar", "timestamp": "2026-08-03T02:49:50+00:00", "analogy_event": "Battle of Kasserine Pass", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 49, "event_name": "Sinking of the RMS Lusitania", "timestamp": "2026-08-03T02:50:11+00:00", "analogy_event": "Sinking of the USS Maine", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 50, "event_name": "Brazilian Revolution of 1930", "timestamp": "2026-08-03T02:53:32+00:00", "analogy_event": "Mexican Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 51, "event_name": "Meiji", "timestamp": "2026-08-03T02:53:46+00:00", "analogy_event": "Peter the Great's reforms", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 52, "event_name": "1905 Russian Revolution", "timestamp": "2026-08-03T02:56:07+00:00", "analogy_event": "1848 Revolutions", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 53, "event_name": "Selma to Montgomery marches", "timestamp": "2026-08-03T02:58:05+00:00", "analogy_event": "Salt March", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 54, "event_name": "Gettysburg Address", "timestamp": "2026-08-03T02:58:19+00:00", "analogy_event": "Pericles' Funeral Oration", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 55, "event_name": "Moratorium to End the War in Vietnam", "timestamp": "2026-08-03T03:02:40+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 56, "event_name": "1968 Democratic National Convention", "timestamp": "2026-08-03T03:04:28+00:00", "analogy_event": "1860 Democratic National Convention", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 57, "event_name": "Defiance Campaign", "timestamp": "2026-08-03T03:07:00+00:00", "analogy_event": "Salt March", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 58, "event_name": "Die Wende", "timestamp": "2026-08-03T03:09:40+00:00", "analogy_event": "Velvet Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 59, "event_name": "June 1976 protests", "timestamp": "2026-08-03T03:13:02+00:00", "analogy_event": "1905 Russian Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 60, "event_name": "Yalta Conference", "timestamp": "2026-08-03T03:15:48+00:00", "analogy_event": "Congress of Vienna", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 61, "event_name": "Fascist and anti-Fascist violence in Italy", "timestamp": "2026-08-03T03:18:10+00:00", "analogy_event": "The Weimar Republic street violence (specifically the clashes between the Sturmabteilung and the Rotfrontkämpferbund)", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 62, "event_name": "Occupy movement", "timestamp": "2026-08-03T03:20:06+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 63, "event_name": "Romanian Revolution", "timestamp": "2026-08-03T03:22:00+00:00", "analogy_event": "French Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 64, "event_name": "Women's March", "timestamp": "2026-08-03T03:24:52+00:00", "analogy_event": "Suffragette movement", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 65, "event_name": "Partition of India", "timestamp": "2026-08-03T03:27:38+00:00", "analogy_event": "Partition of Palestine", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 66, "event_name": "Potsdam Conference", "timestamp": "2026-08-03T03:30:15+00:00", "analogy_event": "Congress of Vienna", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 67, "event_name": "1981 warning strike in Poland", "timestamp": "2026-08-03T03:33:06+00:00", "analogy_event": "", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 68, "event_name": "Tehran Conference", "timestamp": "2026-08-03T03:33:29+00:00", "analogy_event": "Congress of Vienna", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 69, "event_name": "Dred Scott v. Sandford", "timestamp": "2026-08-03T03:36:20+00:00", "analogy_event": "Plessy v. Ferguson", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 70, "event_name": "1960 Democratic National Convention", "timestamp": "2026-08-03T03:38:43+00:00", "analogy_event": "1932 Democratic National Convention", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 71, "event_name": "Martial law in Poland", "timestamp": "2026-08-03T03:42:01+00:00", "analogy_event": "", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 72, "event_name": "Indian independence movement", "timestamp": "2026-08-03T03:42:22+00:00", "analogy_event": "American Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 73, "event_name": "1952 Republican National Convention", "timestamp": "2026-08-03T03:43:20+00:00", "analogy_event": "1868 Republican National Convention", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 74, "event_name": "Assassination of Julius Caesar", "timestamp": "2026-08-03T03:46:06+00:00", "analogy_event": "Assassination of Archduke Franz Ferdinand", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 75, "event_name": "Iranian Revolution", "timestamp": "2026-08-03T03:48:35+00:00", "analogy_event": "Russian Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 76, "event_name": "Constitutionalist Revolution", "timestamp": "2026-08-03T03:52:35+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 77, "event_name": "Hungarian Revolution of 1956", "timestamp": "2026-08-03T03:54:02+00:00", "analogy_event": "Prague Spring", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 78, "event_name": "Belgian Revolution", "timestamp": "2026-08-03T03:57:09+00:00", "analogy_event": "American Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 79, "event_name": "German reunification", "timestamp": "2026-08-03T03:59:20+00:00", "analogy_event": "German unification (1871)", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 80, "event_name": "Assassination of Admiral Coligny", "timestamp": "2026-08-03T04:02:03+00:00", "analogy_event": "Assassination of Archduke Franz Ferdinand", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 81, "event_name": "Iran hostage crisis", "timestamp": "2026-08-03T04:05:59+00:00", "analogy_event": "Historical Analogy Bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 82, "event_name": "German Revolution of 1918–1919", "timestamp": "2026-08-03T04:07:24+00:00", "analogy_event": "Russian Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 83, "event_name": "Civil Rights Act of 1957", "timestamp": "2026-08-03T04:07:59+00:00", "analogy_event": "Civil Rights Act of 1875", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 84, "event_name": "Negotiations to end apartheid in South Africa", "timestamp": "2026-08-03T04:12:44+00:00", "analogy_event": "Civil Rights Movement", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 85, "event_name": "1981 Spanish coup d'état attempt", "timestamp": "2026-08-03T04:15:00+00:00", "analogy_event": "1991 Soviet coup d'état attempt", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 86, "event_name": "Arab Spring", "timestamp": "2026-08-03T04:17:20+00:00", "analogy_event": "Revolutions of 1848", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 87, "event_name": "Taishō", "timestamp": "2026-08-03T04:19:37+00:00", "analogy_event": "Weimar Republic", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 88, "event_name": "Proclamation of the Republic", "timestamp": "2026-08-03T04:23:36+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 89, "event_name": "Watergate scandal", "timestamp": "2026-08-03T04:25:21+00:00", "analogy_event": "Teapot Dome scandal", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 90, "event_name": "Revolutions of 1989", "timestamp": "2026-08-03T04:27:38+00:00", "analogy_event": "Revolutions of 1848", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 91, "event_name": "Arab Cold War", "timestamp": "2026-08-03T04:30:09+00:00", "analogy_event": "Cold War", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 92, "event_name": "Berlin Crisis of 1961", "timestamp": "2026-08-03T04:33:02+00:00", "analogy_event": "Berlin Blockade", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 93, "event_name": "Uprising of 1953 in East Germany", "timestamp": "2026-08-03T04:33:17+00:00", "analogy_event": "Hungarian Revolution of 1956", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 94, "event_name": "John Brown's raid on Harpers Ferry", "timestamp": "2026-08-03T04:35:11+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 95, "event_name": "Asian Relations Conference", "timestamp": "2026-08-03T04:36:38+00:00", "analogy_event": "Bandung Conference", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 96, "event_name": "October Revolution", "timestamp": "2026-08-03T04:40:13+00:00", "analogy_event": "French Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 97, "event_name": "Polish Round Table Agreement", "timestamp": "2026-08-03T04:42:55+00:00", "analogy_event": "Velvet Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 98, "event_name": "French Revolution", "timestamp": "2026-08-03T04:45:17+00:00", "analogy_event": "Russian Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 99, "event_name": "Expedition of the Thousand", "timestamp": "2026-08-03T04:45:36+00:00", "analogy_event": "Simón Bolívar's campaigns for South American independence", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 100, "event_name": "The Great Depression", "timestamp": "2026-08-03T04:47:53+00:00", "analogy_event": "The Great Recession", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 101, "event_name": "Information Age", "timestamp": "2026-08-03T04:50:08+00:00", "analogy_event": "Industrial Revolution", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 102, "event_name": "California Gold Rush", "timestamp": "2026-08-03T04:52:15+00:00", "analogy_event": "Klondike Gold Rush", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 103, "event_name": "Steel strike of 1919", "timestamp": "2026-08-03T04:54:31+00:00", "analogy_event": "Homestead Strike", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 104, "event_name": "Poor People's Campaign", "timestamp": "2026-08-03T04:58:05+00:00", "analogy_event": "", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 105, "event_name": "Deepwater Horizon oil spill", "timestamp": "2026-08-03T04:58:18+00:00", "analogy_event": "Exxon Valdez oil spill", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 106, "event_name": "Bengal famine of 1943", "timestamp": "2026-08-03T05:00:37+00:00", "analogy_event": "Irish Potato Famine", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 107, "event_name": "Tulip mania", "timestamp": "2026-08-03T05:03:23+00:00", "analogy_event": "South Sea Bubble", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 108, "event_name": "Victorian gold rush", "timestamp": "2026-08-03T05:05:30+00:00", "analogy_event": "California gold rush", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 109, "event_name": "Sukhoi", "timestamp": "2026-08-03T05:07:42+00:00", "analogy_event": "Lockheed Martin", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 110, "event_name": "Death and state funeral of Mustafa Kemal Atatürk", "timestamp": "2026-08-03T05:11:43+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 111, "event_name": "Protests of 1968", "timestamp": "2026-08-03T05:13:15+00:00", "analogy_event": "Revolutions of 1848", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 112, "event_name": "Gemini 4", "timestamp": "2026-08-03T05:15:43+00:00", "analogy_event": "Voskhod 2", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 113, "event_name": "Maundy Thursday", "timestamp": "2026-08-03T05:19:36+00:00", "analogy_event": "The Last Supper", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 114, "event_name": "All Souls Day", "timestamp": "2026-08-03T05:23:21+00:00", "analogy_event": "Day of the Dead", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 115, "event_name": "Newfoundland Loggers' Strike", "timestamp": "2026-08-03T05:23:47+00:00", "analogy_event": "Homestead Strike", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 116, "event_name": "1936 Summer Olympics", "timestamp": "2026-08-03T05:26:32+00:00", "analogy_event": "1980 Summer Olympics", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 117, "event_name": "Panama–Pacific International Exposition", "timestamp": "2026-08-03T05:29:45+00:00", "analogy_event": "World's Columbian Exposition", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 118, "event_name": "Wedding", "timestamp": "2026-08-03T05:32:28+00:00", "analogy_event": "Dynastic marriage", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 119, "event_name": "STS-95", "timestamp": "2026-08-03T05:35:09+00:00", "analogy_event": "", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 120, "event_name": "1930 FIFA World Cup", "timestamp": "2026-08-03T05:35:25+00:00", "analogy_event": "1896 Summer Olympics", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 121, "event_name": "Hindenburg disaster", "timestamp": "2026-08-03T05:38:28+00:00", "analogy_event": "Titanic sinking", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 122, "event_name": "STS-41-B", "timestamp": "2026-08-03T05:41:13+00:00", "analogy_event": "Voskhod 2", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 123, "event_name": "17th Academy Awards", "timestamp": "2026-08-03T05:44:56+00:00", "analogy_event": "25th Academy Awards", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 124, "event_name": "1962 FIFA World Cup", "timestamp": "2026-08-03T05:49:20+00:00", "analogy_event": "1938 FIFA World Cup", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 125, "event_name": "Video game", "timestamp": "2026-08-03T05:51:59+00:00", "analogy_event": "Board games", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 126, "event_name": "Soweto uprising", "timestamp": "2026-08-03T05:55:07+00:00", "analogy_event": "Tiananmen Square protests", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 127, "event_name": "2014 FIFA World Cup", "timestamp": "2026-08-03T05:58:04+00:00", "analogy_event": "1950 FIFA World Cup", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 128, "event_name": "2004 Summer Olympics", "timestamp": "2026-08-03T05:58:14+00:00", "analogy_event": "1896 Summer Olympics", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 129, "event_name": "United States Bicentennial", "timestamp": "2026-08-03T06:01:12+00:00", "analogy_event": "United States Centennial", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 130, "event_name": "American frontier", "timestamp": "2026-08-03T06:04:30+00:00", "analogy_event": "Russian expansion into Siberia", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 131, "event_name": "Triangle Shirtwaist Factory fire", "timestamp": "2026-08-03T06:07:06+00:00", "analogy_event": "Rana Plaza collapse", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 132, "event_name": "Korabl-Sputnik 1", "timestamp": "2026-08-03T06:10:07+00:00", "analogy_event": "Mercury-Atlas 4", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 133, "event_name": "Kristallnacht", "timestamp": "2026-08-03T06:12:57+00:00", "analogy_event": "Russian pogroms", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 134, "event_name": "Alizarin", "timestamp": "2026-08-03T06:15:25+00:00", "analogy_event": "Indigo", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 135, "event_name": "May 68", "timestamp": "2026-08-03T06:19:10+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 136, "event_name": "Summer of Love", "timestamp": "2026-08-03T06:20:53+00:00", "analogy_event": "Roaring Twenties", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 137, "event_name": "Croydon typhoid outbreak of 1937", "timestamp": "2026-08-03T06:23:18+00:00", "analogy_event": "Broad Street cholera outbreak", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 138, "event_name": "2007 FIFA Women's World Cup", "timestamp": "2026-08-03T06:26:57+00:00", "analogy_event": "1991 FIFA Women's World Cup", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 139, "event_name": "Wedding of Princess Elizabeth and Philip Mountbatten", "timestamp": "2026-08-03T06:29:50+00:00", "analogy_event": "Wedding of Queen Victoria and Prince Albert", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 140, "event_name": "Stonewall riots", "timestamp": "2026-08-03T06:32:31+00:00", "analogy_event": "Montgomery Bus Boycott", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 141, "event_name": "Crucifixion of Jesus", "timestamp": "2026-08-03T06:35:28+00:00", "analogy_event": "Execution of Socrates", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 142, "event_name": "16th Street Baptist Church bombing", "timestamp": "2026-08-03T06:39:28+00:00", "analogy_event": "Lynching of Emmett Till", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 143, "event_name": "Documenta 14", "timestamp": "2026-08-03T06:42:53+00:00", "analogy_event": "Venice Biennale", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 144, "event_name": "Edo period", "timestamp": "2026-08-03T06:46:23+00:00", "analogy_event": "Ming Dynasty", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 145, "event_name": "Victorian era", "timestamp": "2026-08-03T06:49:32+00:00", "analogy_event": "Gilded Age", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 146, "event_name": "Incunable", "timestamp": "2026-08-03T06:52:30+00:00", "analogy_event": "", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 147, "event_name": "Miracles of Jesus", "timestamp": "2026-08-03T06:52:55+00:00", "analogy_event": "Miracles of Moses", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 148, "event_name": "Columbine High School massacre", "timestamp": "2026-08-03T06:55:10+00:00", "analogy_event": "Bath School disaster", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 149, "event_name": "Pilot Plan for Brasilia", "timestamp": "2026-08-03T06:58:10+00:00", "analogy_event": "", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 150, "event_name": "1958 FIFA World Cup", "timestamp": "2026-08-03T06:58:50+00:00", "analogy_event": "1930 FIFA World Cup", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 151, "event_name": "1968 Olympics Black Power salute", "timestamp": "2026-08-03T07:03:39+00:00", "analogy_event": "*   Role: Historical analogy bot", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 152, "event_name": "Apollo program", "timestamp": "2026-08-03T07:07:26+00:00", "analogy_event": "The Age of Discovery", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 153, "event_name": "Sinking of the RMS Titanic", "timestamp": "2026-08-03T07:11:29+00:00", "analogy_event": "", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 154, "event_name": "Boipatong massacre", "timestamp": "2026-08-03T07:11:40+00:00", "analogy_event": "Sharpeville massacre", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 155, "event_name": "Mercury-Atlas 9", "timestamp": "2026-08-03T07:12:30+00:00", "analogy_event": "Vostok 6", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 156, "event_name": "Brown v. Board of Education", "timestamp": "2026-08-03T07:17:04+00:00", "analogy_event": "Plessy v. Ferguson", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 157, "event_name": "Occupy Wall Street", "timestamp": "2026-08-03T07:20:23+00:00", "analogy_event": "Arab Spring", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 158, "event_name": "Salt March", "timestamp": "2026-08-03T07:23:49+00:00", "analogy_event": "Boston Tea Party", "candidate": [], "extra": {}}
+{"dataset": "general", "index": 159, "event_name": "1980 Summer Olympics", "timestamp": "2026-08-03T07:26:25+00:00", "analogy_event": "1984 Summer Olympics", "candidate": [], "extra": {}}
