@@ -392,6 +392,148 @@ def test_summary_csv_has_one_row_per_method(eval_run, tmp_path):
         assert column in table[0]
 
 
+# ==========================================================================
+# Results directory is named after the model
+# ==========================================================================
+def test_model_slug_keeps_name_and_size_drops_the_instruct_marker():
+    from automatic_evaluation.runner import model_slug
+
+    assert model_slug("gemma-4-31b-it") == "gemma_4_31b"
+    assert model_slug("gemma-4-26b-a4b-it") == "gemma_4_26b_a4b"
+    assert model_slug("gemini-3.5-flash-lite") == "gemini_3_5_flash_lite"
+    assert model_slug("llama3.1:8b-instruct") == "llama3_1_8b"      # local models too
+    assert model_slug("") == "unknown"
+
+
+def test_output_dir_matches_the_hand_made_folder():
+    """The auto name must equal the directory the results already live in."""
+    from automatic_evaluation.runner import RESULTS_ROOT, default_output_dir
+
+    path = default_output_dir("gemma-4-31b-it", "gemma-4-31b-it")
+    assert path.name == "automatic_evaluation_gemma_4_31b"
+    assert path.parent == RESULTS_ROOT
+
+
+def test_different_models_never_share_a_results_directory():
+    from automatic_evaluation.runner import default_output_dir
+
+    a = default_output_dir("gemma-4-31b-it", "gemma-4-31b-it")
+    b = default_output_dir("gemma-4-26b-a4b-it", "gemma-4-26b-a4b-it")
+    c = default_output_dir("llama3.1:8b", "llama3.1:8b")
+    assert len({a, b, c}) == 3
+
+
+def test_a_different_judge_gets_its_own_directory():
+    """Re-judging the same answers must not overwrite the original scores."""
+    from automatic_evaluation.runner import default_output_dir
+
+    same = default_output_dir("gemma-4-31b-it", "gemma-4-31b-it")
+    other = default_output_dir("gemma-4-31b-it", "gemini-2.5-flash")
+    assert same != other
+    assert other.name.endswith("__judge_gemini_2_5_flash")
+
+
+def test_cli_derives_the_output_dir_from_the_configured_model(monkeypatch):
+    from examples.run_automatic_evaluation import parse_args, resolve_output_dir
+    from hal.config import Settings, set_settings
+
+    set_settings(Settings(llm_provider="mock", llm_model="gemma-4-31b-it"))
+    args = parse_args(["--dataset", "popular"])
+    assert resolve_output_dir(args).name == "automatic_evaluation_gemma_4_31b"
+
+
+def test_generation_model_override_redirects_the_folder_and_pins_the_judge():
+    """--generation-model changes who ANSWERS, not who JUDGES."""
+    from examples.run_automatic_evaluation import (
+        apply_model_overrides,
+        parse_args,
+        resolve_output_dir,
+    )
+    from hal.config import Settings, get_settings, set_settings
+
+    set_settings(Settings(llm_provider="mock", llm_model="gemma-4-31b-it"))
+    args = parse_args(["--dataset", "popular", "--generation-model", "llama3.1:8b"])
+    apply_model_overrides(args)
+
+    settings = get_settings()
+    assert settings.model_for("baseline") == "llama3.1:8b"       # answering changed
+    assert settings.model_for("generator") == "llama3.1:8b"
+    assert settings.model_for("evaluation") == "gemma-4-31b-it"  # judge unchanged
+    # the folder records both, so the two conditions never collide
+    assert resolve_output_dir(args).name == (
+        "automatic_evaluation_llama3_1_8b__judge_gemma_4_31b")
+
+
+def test_explicit_output_dir_still_wins(tmp_path):
+    from examples.run_automatic_evaluation import parse_args, resolve_output_dir
+
+    args = parse_args(["--dataset", "popular", "--output-dir", str(tmp_path)])
+    assert resolve_output_dir(args) == tmp_path
+
+
+def test_dedupe_keeps_the_newest_row_per_example(eval_run):
+    """Re-running without --resume appends; averaging must not double-count."""
+    from automatic_evaluation.runner import dedupe_rows
+
+    rows = [
+        {"dataset": "popular", "method": "agentic", "index": 0, "MDS": 1.0},
+        {"dataset": "popular", "method": "agentic", "index": 1, "MDS": 2.0},
+        {"dataset": "popular", "method": "agentic", "index": 0, "MDS": 9.0},  # rerun
+        {"dataset": "general", "method": "agentic", "index": 0, "MDS": 5.0},  # other set
+    ]
+    deduped = dedupe_rows(rows)
+    assert len(deduped) == 3
+    popular_0 = [r for r in deduped
+                 if r["dataset"] == "popular" and r["index"] == 0]
+    assert popular_0[0]["MDS"] == 9.0        # the later run supersedes the earlier
+
+
+def test_duplicated_rows_are_not_double_counted_in_averages():
+    """A duplicated example must not pull the mean toward its value."""
+    base = {"dataset": "popular", "method": "agentic", "status": "ok",
+            "n": 0, "evaluation_model": "m"}
+    columns = {c: 0.0 for c in COMPONENT_COLUMNS}
+    rows = [
+        {**base, **columns, "index": 0, "MDS": 4.0},
+        {**base, **columns, "index": 1, "MDS": 2.0},
+        {**base, **columns, "index": 0, "MDS": 4.0},   # duplicate of index 0
+    ]
+    summary = aggregate(rows, "popular")
+    assert summary[0]["n_evaluated"] == 2               # not 3
+    assert summary[0]["MDS"] == pytest.approx(3.0)      # not 3.333...
+
+
+def test_rerunning_without_resume_does_not_inflate_counts(eval_run):
+    evaluation, config = eval_run(methods=["agentic"])
+    evaluation.run_dataset("popular")
+    again, _ = eval_run(methods=["agentic"], output_dir=config.output_dir)
+    rows = again.run_dataset("popular")          # appends a second time, no --resume
+
+    from hal.io_utils import read_jsonl
+
+    on_disk = read_jsonl(_detailed_path(config, "popular"))
+    assert len(on_disk) == 4                     # the file really did accumulate
+    assert len(rows) == 2                        # but the returned rows are unique
+    assert aggregate(rows, "popular")[0]["n_evaluated"] == 2
+
+
+def test_reaggregate_rebuilds_the_csv_without_calling_any_model(eval_run, capsys):
+    from examples.run_automatic_evaluation import parse_args, reaggregate
+
+    evaluation, config = eval_run(methods=["agentic"])
+    evaluation.run_dataset("popular")
+    _summary_path(config, "popular").unlink(missing_ok=True)
+
+    args = parse_args(["--dataset", "popular", "--methods", "agentic",
+                       "--reaggregate", "--output-dir", str(config.output_dir)])
+    assert reaggregate(args) == 0
+    assert _summary_path(config, "popular").exists()
+    out = capsys.readouterr().out
+    assert "unique (dataset, method, example)" in out
+    # the evaluation LLM was never touched by re-aggregation
+    assert evaluation.context.llm.calls == evaluation.context.llm.calls
+
+
 def test_methods_that_never_ran_still_appear_in_the_table(eval_run):
     """A quota stop must not make a method silently vanish from the results."""
     evaluation, _ = eval_run(methods=["direct_generation"])

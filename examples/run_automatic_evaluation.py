@@ -56,9 +56,9 @@ from automatic_evaluation import (  # noqa: E402
     write_summary_csv,
 )
 from automatic_evaluation.runner import (  # noqa: E402
-    RESULTS_DIR,
     _detailed_path,
     _summary_path,
+    default_output_dir,
 )
 from hal.config import get_settings, load_settings, set_settings  # noqa: E402
 from hal.io_utils import configure_stdout  # noqa: E402
@@ -87,6 +87,9 @@ def parse_args(argv=None):
                         help="only produce and save answers, do not score them")
     parser.add_argument("--evaluate", action="store_true",
                         help="only score previously saved answers, do not generate")
+    parser.add_argument("--reaggregate", action="store_true",
+                        help="rebuild the summary CSV/table from the existing "
+                             "detailed jsonl (duplicates collapsed). No API calls.")
     parser.add_argument("--evaluation-model", default=None,
                         help="model for the evaluation LLM "
                              "(default: EVALUATION_MODEL, else LLM_MODEL)")
@@ -100,7 +103,10 @@ def parse_args(argv=None):
     parser.add_argument("--critique-top-n", type=int, default=None)
     parser.add_argument("--pool-limit", type=int, default=None,
                         help="embed only the first N pool events (retrieval methods)")
-    parser.add_argument("--output-dir", default=str(RESULTS_DIR))
+    parser.add_argument("--output-dir", default=None,
+                        help="where results go (default: "
+                             "results/automatic_evaluation_<model>, derived from "
+                             "the generation model)")
     parser.add_argument("--no-cache", action="store_true",
                         help="disable the evaluation cache (more API calls)")
     parser.add_argument("--dry-run", action="store_true",
@@ -109,17 +115,85 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+def apply_model_overrides(args) -> None:
+    """Apply ``--generation-model`` to the answering roles only.
+
+    The model that PRODUCES an analogy and the model that JUDGES it are
+    separate settings. Overriding the generation model must therefore leave the
+    evaluation model where it was, otherwise a single flag would silently
+    change the metric as well as the method.
+    """
+    if not args.generation_model:
+        return
+    settings = get_settings()
+    role_models = dict(settings.role_models)
+    role_models["evaluation"] = settings.model_for("evaluation")   # pin the judge
+    set_settings(load_settings(llm_model=args.generation_model,
+                               role_models=role_models))
+
+
+def resolve_output_dir(args) -> Path:
+    """Explicit --output-dir wins; otherwise derive it from the models in play."""
+    if args.output_dir:
+        return Path(args.output_dir)
+    settings = get_settings()
+    generation_model = args.generation_model or settings.model_for("baseline")
+    evaluation_model = args.evaluation_model or settings.model_for("evaluation")
+    return default_output_dir(generation_model, evaluation_model)
+
+
+def reaggregate(args) -> int:
+    """Rebuild summary CSVs from detailed jsonl files already on disk.
+
+    Reads nothing but local files -- no model is contacted. Duplicate rows from
+    repeated runs are collapsed (newest wins) before averaging.
+    """
+    from automatic_evaluation.runner import dedupe_rows, load_detailed
+    from hal.io_utils import read_jsonl
+
+    config = EvaluationConfig(output_dir=resolve_output_dir(args), smoke=args.smoke)
+    datasets = (["popular", "general"] if args.dataset == "all" else [args.dataset])
+    methods = expand_methods(args.methods)
+    print(f"reading from: {config.output_dir}")
+
+    exit_code = 1
+    for dataset in datasets:
+        path = _detailed_path(config, dataset)
+        if not path.exists():
+            print(f"\n{dataset}: no detailed results at {path}")
+            continue
+        raw = read_jsonl(path)
+        rows = dedupe_rows(raw)
+        removed = len(raw) - len(rows)
+        print(f"\n{dataset}: {len(raw)} rows on disk -> {len(rows)} unique "
+              f"(dataset, method, example)" + (f"; {removed} duplicate(s) collapsed"
+                                               if removed else "; no duplicates"))
+        summary = aggregate(rows, dataset, methods=methods)
+        if not summary:
+            print("  nothing to aggregate.")
+            continue
+        include_pass_1 = any(e.get("Pass@1") is not None for e in summary)
+        print_summary_table(summary, dataset, include_pass_1, smoke=args.smoke)
+        csv_path = write_summary_csv(summary, _summary_path(config, dataset),
+                                     include_pass_1)
+        print(f"\n  aggregate table -> {csv_path}")
+        exit_code = 0
+    return exit_code
+
+
 def main(argv=None) -> int:
     configure_stdout()
     args = parse_args(argv)
+
+    if args.reaggregate:
+        return reaggregate(args)
 
     if args.dry_run:
         from examples.run_all_methods import install_dry_run_providers
 
         install_dry_run_providers()
 
-    if args.generation_model:
-        set_settings(load_settings(llm_model=args.generation_model, role_models={}))
+    apply_model_overrides(args)
     settings = get_settings()
 
     if not args.dry_run and settings.llm_provider == "gemini" and not settings.api_key:
@@ -150,7 +224,7 @@ def main(argv=None) -> int:
         limit=args.limit,
         smoke=args.smoke,
         resume=args.resume,
-        output_dir=Path(args.output_dir),
+        output_dir=resolve_output_dir(args),
         evaluation_model=args.evaluation_model,
         use_cache=not args.no_cache,
         verbose=args.verbose,

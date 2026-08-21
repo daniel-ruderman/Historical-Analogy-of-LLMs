@@ -36,8 +36,46 @@ from hal.retry import ProviderError
 
 from .methods import METHOD_LABELS, GenerationConfig, MethodRunner, canonical
 
-RESULTS_DIR = REPO_ROOT / "results" / "automatic_evaluation"
+RESULTS_ROOT = REPO_ROOT / "results"
+RESULTS_DIR = RESULTS_ROOT / "automatic_evaluation"   # fallback when no model is known
 GENERATIONS_DIRNAME = "generations"
+
+
+def model_slug(model: str) -> str:
+    """Turn a model id into a filesystem-safe folder fragment.
+
+        gemma-4-31b-it        -> gemma_4_31b
+        gemma-4-26b-a4b-it    -> gemma_4_26b_a4b
+        gemini-3.5-flash-lite -> gemini_3_5_flash_lite
+        llama3.1:8b-instruct  -> llama3_1_8b
+
+    The trailing instruction-tuned marker is dropped: it says nothing about
+    which model produced the numbers, and every model we use is instruct-tuned.
+    """
+    import re
+
+    slug = (model or "unknown").strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "_", slug).strip("_")
+    for suffix in ("_it", "_instruct", "_instruction_tuned"):
+        if slug.endswith(suffix):
+            slug = slug[: -len(suffix)]
+            break
+    return slug or "unknown"
+
+
+def default_output_dir(generation_model: str,
+                       evaluation_model: Optional[str] = None) -> Path:
+    """``results/automatic_evaluation_<model>`` for the model that answered.
+
+    Results from different models are different experimental conditions and
+    must not share a directory. When a *different* model did the judging, its
+    slug is appended too, so re-judging the same answers cannot silently
+    overwrite the original scores.
+    """
+    name = f"automatic_evaluation_{model_slug(generation_model)}"
+    if evaluation_model and model_slug(evaluation_model) != model_slug(generation_model):
+        name += f"__judge_{model_slug(evaluation_model)}"
+    return RESULTS_ROOT / name
 
 # The columns of the paper's automatic-evaluation table.
 COMPONENT_COLUMNS = [
@@ -135,6 +173,28 @@ def _append_jsonl(path: Path, row: Dict[str, Any]) -> None:
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(row, ensure_ascii=False) + "\n")
         handle.flush()
+
+
+def dedupe_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """One row per (dataset, method, example), keeping the most recent.
+
+    The detailed file is append-only, so re-running a dataset without
+    ``--resume`` writes a second row for examples that were already scored.
+    Averaging over both would weight those examples twice, so every consumer of
+    the rows collapses duplicates first. The last occurrence wins: a later run
+    supersedes an earlier one.
+    """
+    latest: Dict[Tuple[Any, Any, Any], Dict[str, Any]] = {}
+    for row in rows:
+        latest[(row.get("dataset"), row.get("method"), row.get("index"))] = row
+    return list(latest.values())
+
+
+def load_detailed(path: Path) -> List[Dict[str, Any]]:
+    """All rows of a detailed jsonl file, duplicates collapsed."""
+    if not path.exists():
+        return []
+    return dedupe_rows(read_jsonl(path))
 
 
 def load_completed(path: Path) -> Dict[Tuple[str, int], Dict[str, Any]]:
@@ -358,7 +418,7 @@ class AutomaticEvaluation:
 
         if evaluate:
             print(f"\n  detailed rows -> {detailed_path}")
-        return rows
+        return dedupe_rows(rows)
 
     def _print_example(self, index: int, label: str, row: Dict[str, Any]) -> None:
         if row.get("status") != "ok":
@@ -384,7 +444,7 @@ def aggregate(rows: Sequence[Dict[str, Any]], dataset: str,
     silently vanishing from the table.
     """
     by_method: Dict[str, List[Dict[str, Any]]] = {}
-    for row in rows:
+    for row in dedupe_rows(rows):
         if row.get("dataset") != dataset:
             continue
         by_method.setdefault(row.get("method", "?"), []).append(row)
