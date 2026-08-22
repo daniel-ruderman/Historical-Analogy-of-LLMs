@@ -345,7 +345,7 @@ test.
 | Variable | Tracked default | Meaning |
 |---|---|---|
 | `GEMINI_API_KEY` | *(none — secret, local `.env` only)* | your key |
-| `LLM_PROVIDER` / `LLM_MODEL` | `gemini` / `gemma-4-31b-it` | LLM for every role |
+| `LLM_PROVIDER` / `LLM_MODEL` | `local` / `qwen3:8b` | LLM for every role (local Ollama server) |
 | `EMBEDDING_PROVIDER` / `EMBEDDING_MODEL` | `gemini` / `gemini-embedding-001` | retrieval embeddings |
 | `EMBEDDING_DIMENSIONS` | *(SDK default)* | optional reduced dimensionality |
 | `SEARCH_PROVIDER` | `wikipedia` | agent tool backend |
@@ -359,7 +359,7 @@ test.
 | `CACHE_ENABLED` / `CACHE_DIR` | `true` / `.hal_cache` | on-disk caches |
 | `GEMINI_API_SURFACE` | `auto` | `auto` / `models` / `interactions` |
 
-> **Model names are configuration, not architecture.** `gemma-4-31b-it` is the current team
+> **Model names are configuration, not architecture.** `qwen3:8b` is the current team
 > default and it is written in exactly one place (`hal/project_defaults.py`); no algorithm file
 > mentions a model name. Gemini model availability and quotas change over time — check your
 > limits in AI Studio, and change the default for everyone by editing that one file and pushing.
@@ -372,9 +372,9 @@ Because the provider is orthogonal to the method, the planned experiment grid wo
 environment variables only — no tracked file and no algorithm changes:
 
 ```bash
-python examples/run_all_methods.py --methods direct_generation                      # gemma-4-31b-it (tracked default)
-LLM_MODEL=gemma-4-31b-it python examples/run_all_methods.py --methods direct_generation
-LLM_MODEL=gemma-4-31b-it python examples/run_all_methods.py --methods agentic
+python examples/run_all_methods.py --methods direct_generation                      # qwen3:8b (tracked default)
+LLM_MODEL=qwen3:8b python examples/run_all_methods.py --methods direct_generation
+LLM_MODEL=qwen3:8b python examples/run_all_methods.py --methods agentic
 ```
 
 The runner also accepts `--model NAME` / `--provider NAME`, which override the configuration for
@@ -399,7 +399,7 @@ that single run.
 2. **Create `.env`** — `cp .env.example .env`
 3. **Add your own `GEMINI_API_KEY`** to it
 
-That is all. Everything else — the LLM provider, `gemma-4-31b-it`, the embedding model, the
+That is all. Everything else — the LLM provider, `qwen3:8b`, the embedding model, the
 refinement rounds, the candidate counts, the temperatures — already comes from the tracked
 repository (`hal/project_defaults.py`), so both collaborators run the same configuration without
 coordinating anything by hand.
@@ -598,7 +598,7 @@ unfair.
 
 | Aspect | Original | Ours | Effect |
 |---|---|---|---|
-| Embeddings | OpenAI `text-embedding-3-small` (1536-d, unit-norm), pre-computed in `dataset/similarity_embeddings-example.jsonl` | configurable `EmbeddingProvider`, `gemini-embedding-001` by default, computed and cached | **The algorithm is identical** (cosine similarity over description embeddings; top-1 for direct retrieval, top-10 for two-stage). Vectors are *not* numerically comparable across embedding models, so retrieval numbers will differ from the paper's. Gemini vectors are L2-normalised so that an inner product equals cosine similarity, matching the original's use of `np.dot`. |
+| Embeddings | OpenAI `text-embedding-3-small` (1536-d, unit-norm), pre-computed in `dataset/similarity_embeddings-example.jsonl` | configurable `EmbeddingProvider`, `gemini-embedding-001` by default, computed and cached | **The algorithm is identical** (cosine similarity over description embeddings; top-1 for direct retrieval, top-10 for two-stage). Vectors are *not* numerically comparable across embedding models, so retrieval numbers will differ from the paper's. Gemini vectors are L2-normalised so that an inner product equals cosine similarity, matching the original's use of `np.dot`. **Why not reuse the authors' shipped vectors?** They cover the 658 pool events, and every general input event is itself in the pool (158/160 with byte-identical text), so paper-exact retrieval on *general* would be possible with no API key — but only 5 of the 20 *popular* input events are covered. We use one embedding space for both datasets so that our popular and general retrieval results stay comparable to each other; reproducing the paper's exact retrieval on general remains an option for a future ablation. |
 | LLM | `gpt-3.5-turbo` / `gpt-4` via LangChain, plus an old `google.generativeai` `gemini-pro` helper | any registered provider; Gemini via `google-genai` | Different model → different outputs. This is intended: the presentation's baseline is to re-run the paper's methods on current SOTA models. |
 | Wikipedia | `wikipedia` PyPI package (HTML scraping, random pick on disambiguation) | MediaWiki API via `requests`, behind `SearchProvider`, cached | Same source and same procedure (exact title, else first search hit, lead section, truncated at 4096 chars). More reliable and reproducible; disambiguation resolution is deterministic rather than random. |
 | Reflection loop | `while 'Reflection' in choice` with no bound | identical, plus a `max_reflections` cap (default 5) | The original cannot terminate if the model always reflects. The paper reports reflection firing in ~10% of cases, so the cap does not normally bind. |
@@ -677,7 +677,8 @@ baselines, the MDS evaluation, the full agentic pipeline, the example runner and
 Still to do:
 
 - run the real Gemini smoke test once an API key is configured (see §9);
-- confirm the quota available for the team default (`gemma-4-31b-it`) before a full run;
+- confirm wall-time budget for the team default (`qwen3:8b`, local): there is no quota,
+  but a full agentic run is measured in hours;
 - full-dataset runs and MDS comparison of the baselines against our pipeline;
 - the human-evaluation protocol from the paper, if we replicate it;
 - the prediction-usefulness evaluation of §12;

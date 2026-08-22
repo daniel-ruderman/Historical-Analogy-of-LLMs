@@ -568,6 +568,51 @@ def test_table_warns_when_answers_could_not_be_scored(capsys, eval_run,
     assert "unresolved_event" in out
 
 
+def test_pooling_two_experimental_conditions_is_flagged(capsys):
+    """Same model at different settings, or different models, must not be
+    silently averaged into one row."""
+    cols = {c: 1.0 for c in COMPONENT_COLUMNS}
+    base = dict(dataset="popular", method="agentic",
+                method_label="Our Agentic Pipeline", status="ok",
+                evaluation_model="gemma-4-31b-it", **cols)
+    rows = [
+        {**base, "index": 0, "generation_model": "qwen3:8b",
+         "refinement_rounds": 1, "max_candidates": 5},
+        {**base, "index": 1, "generation_model": "qwen3:8b",
+         "refinement_rounds": 2, "max_candidates": 8},   # different settings
+    ]
+    summary = aggregate(rows, "popular", methods=["agentic"])
+    assert summary[0]["mixed_conditions"]
+    print_summary_table(summary, "popular", False)
+    out = capsys.readouterr().out
+    assert "MORE THAN ONE condition" in out
+    assert "max_candidates=5" in out and "max_candidates=8" in out
+
+
+def test_one_condition_is_not_flagged():
+    cols = {c: 1.0 for c in COMPONENT_COLUMNS}
+    base = dict(dataset="popular", method="agentic",
+                method_label="Our Agentic Pipeline", status="ok",
+                generation_model="qwen3:8b", evaluation_model="gemma-4-31b-it",
+                refinement_rounds=1, max_candidates=5, **cols)
+    rows = [{**base, "index": 0}, {**base, "index": 1}]
+    assert aggregate(rows, "popular", methods=["agentic"])[0]["mixed_conditions"] == []
+
+
+def test_agentic_rows_record_the_full_configuration(eval_run, popular_events):
+    """A row must say which settings produced it, not just the round count."""
+    evaluation, _ = eval_run(methods=["agentic"])
+    evaluation.config.generation.refinement_rounds = 1
+    evaluation.config.generation.max_candidates = 5
+    evaluation.config.generation.react_max_steps = 2
+    evaluation.config.generation.critique_top_n = 3
+    row = evaluation.evaluate_example("popular", 0, popular_events[0], "agentic")
+    assert row["refinement_rounds"] == 1
+    assert row["max_candidates"] == 5
+    assert row["react_max_steps"] == 2
+    assert row["critique_top_n"] == 3
+
+
 def test_quota_notice_explains_the_daily_cap(capsys):
     from automatic_evaluation.runner import _print_quota_notice
 

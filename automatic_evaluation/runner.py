@@ -247,8 +247,17 @@ class AutomaticEvaluation:
             "embedding_model": (self.settings.embedding_model
                                 if method in ("direct_retrieval", "twostage_retrieval")
                                 else None),
+            # The full agentic configuration, not just the round count: two runs
+            # of the same model at different settings are different conditions
+            # and their averages must not be pooled.
             "refinement_rounds": (generation.refinement_rounds
                                   if method == "agentic" else None),
+            "max_candidates": (generation.max_candidates
+                               if method == "agentic" else None),
+            "react_max_steps": (generation.react_max_steps
+                                if method == "agentic" else None),
+            "critique_top_n": (generation.critique_top_n
+                               if method == "agentic" else None),
             "pool_limit": (generation.pool_limit
                            if method in ("direct_retrieval", "twostage_retrieval")
                            else None),
@@ -434,6 +443,21 @@ class AutomaticEvaluation:
 # --------------------------------------------------------------------------
 # Aggregation
 # --------------------------------------------------------------------------
+def _condition_key(row: Dict[str, Any]) -> str:
+    """Identify the experimental condition a row was produced under.
+
+    Two rows only belong in the same average if the model that answered, the
+    model that judged, and the pipeline settings all match.
+    """
+    parts = [str(row.get("generation_model")), str(row.get("evaluation_model"))]
+    for field in ("refinement_rounds", "max_candidates", "react_max_steps",
+                  "critique_top_n"):
+        value = row.get(field)
+        if value is not None:
+            parts.append(f"{field}={value}")
+    return "|".join(parts)
+
+
 def aggregate(rows: Sequence[Dict[str, Any]], dataset: str,
               methods: Optional[Sequence[str]] = None) -> List[Dict[str, Any]]:
     """Average the component columns per method, as the paper's table does.
@@ -499,6 +523,12 @@ def aggregate(rows: Sequence[Dict[str, Any]], dataset: str,
         for row in method_rows:
             statuses[row.get("status", "?")] = statuses.get(row.get("status", "?"), 0) + 1
         entry["status_counts"] = statuses
+
+        # Averaging across different generation settings (or models) would pool
+        # incomparable conditions into one number. Surface it rather than hide it.
+        entry["mixed_conditions"] = sorted({
+            _condition_key(row) for row in method_rows
+        }) if len({_condition_key(row) for row in method_rows}) > 1 else []
         entry["evaluation_model"] = method_rows[0].get("evaluation_model")
         entry["generation_model"] = method_rows[0].get("generation_model")
         summary.append(entry)
@@ -560,7 +590,8 @@ def print_summary_table(summary: Sequence[Dict[str, Any]], dataset: str,
                   if e["n_evaluated"] == 0 or e["n_attempted"] < expected]
     unscored = [e for e in summary
                 if e["n_attempted"] and e["n_evaluated"] < e["n_attempted"]]
-    if incomplete or unscored:
+    mixed = [e for e in summary if e.get("mixed_conditions")]
+    if incomplete or unscored or mixed:
         print("\nWARNING -- this table is incomplete:")
         for entry in incomplete:
             if entry["n_evaluated"] == 0:
@@ -569,6 +600,10 @@ def print_summary_table(summary: Sequence[Dict[str, Any]], dataset: str,
             else:
                 print(f"  * {entry['method_label']}: only "
                       f"{entry['n_attempted']}/{expected} examples were attempted.")
+        for entry in summary:
+            for condition in entry.get("mixed_conditions", []):
+                print(f"  * {entry['method_label']}: rows come from MORE THAN ONE "
+                      f"condition -- {condition}")
         for entry in unscored:
             skipped = entry["n_attempted"] - entry["n_evaluated"]
             reasons = {k: v for k, v in entry.get("status_counts", {}).items()

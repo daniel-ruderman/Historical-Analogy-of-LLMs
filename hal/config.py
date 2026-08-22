@@ -51,6 +51,16 @@ ROLES = (
     "evaluation",      # MDS abstract-similarity judging
 )
 
+_ROLE_PROVIDER_ENV = {
+    "generator": "GENERATOR_PROVIDER",
+    "critic": "CRITIC_PROVIDER",
+    "anti_analogy": "ANTI_ANALOGY_PROVIDER",
+    "judge": "JUDGE_PROVIDER",
+    "summarizer": "SUMMARIZER_PROVIDER",
+    "baseline": "BASELINE_PROVIDER",
+    "evaluation": "EVALUATION_PROVIDER",
+}
+
 _ROLE_ENV = {
     "generator": "GENERATOR_MODEL",
     "critic": "CRITIC_MODEL",
@@ -65,10 +75,10 @@ _ROLE_ENV = {
 # hal/project_defaults.py (tracked) unless an environment variable overrides
 # them; these constants only matter if a key is removed from PROJECT_DEFAULTS.
 # The generation model and the embedding model are independent settings.
-DEFAULT_LLM_PROVIDER = get_project_default("LLM_PROVIDER") or "gemini"
+DEFAULT_LLM_PROVIDER = get_project_default("LLM_PROVIDER") or "local"
 DEFAULT_EMBEDDING_PROVIDER = get_project_default("EMBEDDING_PROVIDER") or "gemini"
 DEFAULT_SEARCH_PROVIDER = get_project_default("SEARCH_PROVIDER") or "wikipedia"
-DEFAULT_LLM_MODEL = get_project_default("LLM_MODEL") or "gemma-4-31b-it"
+DEFAULT_LLM_MODEL = get_project_default("LLM_MODEL") or "qwen3:8b"
 DEFAULT_EMBEDDING_MODEL = get_project_default("EMBEDDING_MODEL") or "gemini-embedding-001"
 
 # The paper (Sec. 5.1) runs the baselines with temperature 0.1.
@@ -164,6 +174,11 @@ class Settings:
     embedding_dimensions: Optional[int] = None
     search_provider: str = DEFAULT_SEARCH_PROVIDER
     role_models: Dict[str, str] = field(default_factory=dict)
+    # Optional per-role provider. Lets the model that PRODUCES an analogy live
+    # somewhere different from the model that JUDGES it -- e.g. generate on a
+    # local server while keeping the API judge, so MDS stays comparable with
+    # results scored earlier.
+    role_providers: Dict[str, str] = field(default_factory=dict)
 
     # --- generation ------------------------------------------------------
     temperature: float = DEFAULT_TEMPERATURE
@@ -187,6 +202,14 @@ class Settings:
     cache_enabled: bool = True
     cache_dir: Path = REPO_ROOT / ".hal_cache"
 
+    # --- local model server (LLM_PROVIDER=local) -------------------------
+    local_base_url: str = "http://localhost:11434"
+    local_api_style: str = "ollama"     # ollama | openai
+    local_num_ctx: int = 10240          # context window; too small = silent truncation
+    local_keep_alive: str = "30m"       # keep the model resident between calls
+    local_think: str = "false"          # true | false | auto (model default)
+    local_timeout: float = 600.0
+
     # --- misc ------------------------------------------------------------
     wiki_lang: str = "en"
     wiki_max_chars: int = 4096  # evaluation.py truncates summaries at 4096
@@ -196,6 +219,10 @@ class Settings:
     def model_for(self, role: str) -> str:
         """Return the model configured for ``role`` (defaults to ``llm_model``)."""
         return self.role_models.get(role) or self.llm_model
+
+    def provider_for(self, role: str) -> str:
+        """Return the provider for ``role`` (defaults to ``llm_provider``)."""
+        return self.role_providers.get(role) or self.llm_provider
 
     def describe(self) -> str:
         roles = ", ".join(f"{r}={self.model_for(r)}" for r in ROLES)
@@ -228,6 +255,12 @@ def load_settings(**overrides) -> Settings:
         if value:
             role_models[role] = value
 
+    role_providers = {}
+    for role, env_name in _ROLE_PROVIDER_ENV.items():
+        value = _env(env_name)
+        if value:
+            role_providers[role] = value
+
     dims = _env("EMBEDDING_DIMENSIONS")
     settings = Settings(
         llm_provider=_env("LLM_PROVIDER", DEFAULT_LLM_PROVIDER),
@@ -237,6 +270,7 @@ def load_settings(**overrides) -> Settings:
         embedding_dimensions=int(dims) if dims else None,
         search_provider=_env("SEARCH_PROVIDER", DEFAULT_SEARCH_PROVIDER),
         role_models=role_models,
+        role_providers=role_providers,
         temperature=_env_float("LLM_TEMPERATURE", DEFAULT_TEMPERATURE),
         evaluation_temperature=_env_float(
             "EVALUATION_TEMPERATURE", DEFAULT_EVAL_TEMPERATURE
@@ -253,6 +287,12 @@ def load_settings(**overrides) -> Settings:
         request_delay=_env_float("REQUEST_DELAY", 0.0),
         cache_enabled=_env_bool("CACHE_ENABLED", True),
         cache_dir=_cache_dir(),
+        local_base_url=_env("LOCAL_BASE_URL", "http://localhost:11434"),
+        local_api_style=_env("LOCAL_API_STYLE", "ollama"),
+        local_num_ctx=_env_int("LOCAL_NUM_CTX", 10240),
+        local_keep_alive=_env("LOCAL_KEEP_ALIVE", "30m"),
+        local_think=_env("LOCAL_THINK", "false"),
+        local_timeout=_env_float("LOCAL_TIMEOUT", 600.0),
         wiki_lang=_env("WIKI_LANG", "en"),
         api_key=_env("GEMINI_API_KEY") or _env("GOOGLE_API_KEY"),
         gemini_api_surface=_env("GEMINI_API_SURFACE", "auto"),

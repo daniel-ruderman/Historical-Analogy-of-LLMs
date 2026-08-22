@@ -1,0 +1,2 @@
+method,method_label,n_evaluated,n_attempted,TAbs,TLit,TAll,BAbs,BLit,BAll,PAbs,PLit,PAll,RAbs,RLit,RAll,MDS,Pass@1,generation_model,evaluation_model
+agentic,Our Agentic Pipeline,20,20,2.95,0.115,0.6967,2.6,0.0849,0.6748,2.65,0.0763,0.7236,2.45,0.067,0.677,3.8244,0.1,llama3.1:latest,gemma-4-31b-it

@@ -37,7 +37,13 @@ SECRET_KEYS = frozenset({
 # ---------------------------------------------------------------------------
 PROJECT_DEFAULTS: Dict[str, str] = {
     # --- providers ---------------------------------------------------------
-    "LLM_PROVIDER": "gemini",
+    # Generation runs on a LOCAL model server (Ollama); see the local settings
+    # below and section 9 of CLAUDE.md. Embeddings deliberately stay on the
+    # Gemini API -- they are a separate setting, only the two retrieval
+    # baselines use them, and keeping them fixed preserves comparability with
+    # every earlier result. That means GEMINI_API_KEY is still required for
+    # direct_retrieval / twostage_retrieval, but for nothing else.
+    "LLM_PROVIDER": "local",
     "EMBEDDING_PROVIDER": "gemini",
     "SEARCH_PROVIDER": "wikipedia",
 
@@ -45,21 +51,27 @@ PROJECT_DEFAULTS: Dict[str, str] = {
     # The generation model and the embedding model are configured
     # independently: changing one does not imply changing the other.
     #
-    # Gemma 4 is served through the same Gemini API and the same API key.
-    # The free-tier daily request cap is per project *per model*
-    # (quotaId GenerateRequestsPerDayPerProjectPerModel-FreeTier), so a Gemma
-    # model draws from its own bucket, separate from the gemini-* models.
-    # Alternative served to this project: "gemma-4-26b-a4b-it" (mixture of
-    # experts, ~4B active parameters -> faster; same API surface).
-    # NOTE: Gemma 4 is a *reasoning* model -- see MAX_OUTPUT_TOKENS below.
-    "LLM_MODEL": "gemma-4-31b-it",
-    "EMBEDDING_MODEL": "gemini-embedding-001",   # Gemma serves no embeddings
+    # qwen3:8b for EVERY role, including the judge -- one model keeps the
+    # experimental condition clean. Requires `ollama pull qwen3:8b`.
+    #
+    # Chosen 2026-08-22 from a head-to-head on all 20 popular examples
+    # (agentic method, reduced settings, judged by gemma-4-31b-it):
+    #     qwen3:8b     MDS 4.002   Pass@1 0.30   scored 20/20
+    #     llama3.1:8b  MDS 3.824   Pass@1 0.10   scored 20/20
+    #     gemma-4-31b  MDS 4.110   Pass@1 0.29   scored 17/20  (API, full settings)
+    # The three are close; qwen3 wins on Pass@1 and edges MDS, and both local
+    # models completed every example where the 31B API model lost three.
+    # qwen3 is ~35% slower than llama3.1 and produced one self-analogy in 20.
+    "LLM_MODEL": "qwen3:8b",
+    "EMBEDDING_MODEL": "gemini-embedding-001",   # Ollama models serve no embeddings
 
     # Per-role models are intentionally absent: each role falls back to
-    # LLM_MODEL. To pin one for the whole team, add it here, e.g.
-    #     "JUDGE_MODEL": "gemma-4-31b-it",
+    # LLM_MODEL, so the judge is qwen3:8b too. To pin one, add it here, e.g.
+    #     "JUDGE_MODEL": "qwen3:8b",
     # Recognised keys: GENERATOR_MODEL, CRITIC_MODEL, ANTI_ANALOGY_MODEL,
     # JUDGE_MODEL, SUMMARIZER_MODEL, BASELINE_MODEL, EVALUATION_MODEL.
+    # Per-role PROVIDERS exist too (GENERATOR_PROVIDER, EVALUATION_PROVIDER,
+    # ...), which is how you would keep an API judge while generating locally.
 
     # Which Gemini generation surface to use: auto | models | interactions
     "GEMINI_API_SURFACE": "auto",
@@ -87,6 +99,36 @@ PROJECT_DEFAULTS: Dict[str, str] = {
     "RETRY_BASE_DELAY": "2.0",
     "RETRY_MAX_DELAY": "60.0",
     "REQUEST_DELAY": "0.0",
+
+    # --- local model server (used when LLM_PROVIDER=local) -----------------
+    # Ollama by default. `ollama` is the only API style that lets us set the
+    # context window per request, which is why it is the default.
+    "LOCAL_BASE_URL": "http://localhost:11434",
+    "LOCAL_API_STYLE": "ollama",          # ollama | openai
+    # MEASURED, not guessed. One full-settings agentic example on qwen3:8b
+    # (140 calls) gave prompt sizes: mean 1265, p90 1473, max 6572 tokens.
+    # Ollama's own default is 2k-4k and TRUNCATES SILENTLY -- it drops the START
+    # of the prompt and answers anyway, so the model loses the task and the input
+    # event while still seeing the trailing "reply with JSON" instruction. The
+    # result is well-formed JSON about the wrong thing. hal/providers/local.py
+    # now checks prompt_eval_count after every call and raises instead.
+    #
+    # Context costs VRAM. Measured on an 8 GB card (RTX 2070 SUPER, qwen3:8b Q4):
+    #     8192  -> 6.2 GB, 100% on GPU
+    #    10240  -> 6.9 GB,  92% on GPU
+    #    16384  -> 7.8 GB,  80% on GPU  (~45% slower per call)
+    # 10240 clears the measured 6572-token worst case with ~3.6k to spare while
+    # keeping nearly all layers on the GPU. Raise it only if the guard fires.
+    "LOCAL_NUM_CTX": "10240",
+    # Keep the model loaded between calls: the agentic pipeline makes dozens of
+    # calls per example and reloading would dominate the runtime.
+    "LOCAL_KEEP_ALIVE": "30m",
+    # Reasoning models think before answering. Measured on qwen3:8b: 20-24 s
+    # with thinking vs 6 s without, for the same answer -- 3-4x the wall time
+    # across a run that makes tens of thousands of calls. Off by default;
+    # set true to test whether thinking improves analogy quality.
+    "LOCAL_THINK": "false",
+    "LOCAL_TIMEOUT": "600",
 
     # --- caching (never part of a research result) -------------------------
     "CACHE_ENABLED": "true",

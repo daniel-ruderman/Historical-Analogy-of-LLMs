@@ -47,6 +47,12 @@ def _gemini_embedding(settings: Settings, model: Optional[str]) -> EmbeddingProv
     return GeminiEmbeddingProvider(model=model, settings=settings)
 
 
+def _local_llm(settings: Settings, role: str, model: Optional[str]) -> LLMProvider:
+    from .local import LocalLLMProvider
+
+    return LocalLLMProvider(model=model, settings=settings, role=role)
+
+
 def _mock_llm(settings: Settings, role: str, model: Optional[str]) -> LLMProvider:
     from .mock import MockLLMProvider
 
@@ -78,6 +84,8 @@ def _mock_search(settings: Settings) -> SearchProvider:
 
 
 register_llm("gemini", _gemini_llm)
+register_llm("local", _local_llm)
+register_llm("ollama", _local_llm)      # alias
 register_llm("mock", _mock_llm)
 register_embedding("gemini", _gemini_embedding)
 register_embedding("mock", _mock_embedding)
@@ -95,7 +103,7 @@ def get_llm(role: str = "baseline", *, model: Optional[str] = None,
     ``GENERATOR_MODEL``/``CRITIC_MODEL``/... override ``LLM_MODEL`` per role.
     """
     settings = settings or get_settings()
-    provider = (provider or settings.llm_provider).lower()
+    provider = (provider or settings.provider_for(role)).lower()
     if provider not in _LLM_REGISTRY:
         raise ValueError(
             f"Unknown LLM_PROVIDER {provider!r}. Known: {sorted(_LLM_REGISTRY)}"

@@ -180,8 +180,8 @@ There are two places a setting can come from:
      This is a normal Python file that is COMMITTED to Git. It looks like:
 
          PROJECT_DEFAULTS = {
-             "LLM_PROVIDER":       "gemini",
-             "LLM_MODEL":          "gemma-4-31b-it",
+             "LLM_PROVIDER":       "local",
+             "LLM_MODEL":          "qwen3:8b",
              "EMBEDDING_PROVIDER": "gemini",
              "EMBEDDING_MODEL":    "gemini-embedding-001",
              "REFINEMENT_ROUNDS":  "2",
@@ -271,7 +271,7 @@ holds NO real key -- the key line is deliberately left empty:
 
 Everything else in .env.example is COMMENTED OUT, like this:
 
-    # LLM_MODEL=gemma-4-31b-it
+    # LLM_MODEL=qwen3:8b
     # REFINEMENT_ROUNDS=2
 
 That is on purpose. Those lines are only there to show you what you COULD
@@ -299,9 +299,9 @@ CONCRETE EXAMPLE
 
 Suppose hal/project_defaults.py contains:
 
-    "LLM_MODEL": "gemma-4-31b-it",
+    "LLM_MODEL": "qwen3:8b",
 
-Then EVERYONE who pulls the repository uses gemma-4-31b-it. You and your
+Then EVERYONE who pulls the repository uses qwen3:8b. You and your
 partner are running the same experiment. Good.
 
 Now suppose you instead put this line in YOUR .env:
@@ -309,7 +309,7 @@ Now suppose you instead put this line in YOUR .env:
     LLM_MODEL=some-other-model
 
 Then ONLY YOUR COMPUTER uses that model. Your partner still uses
-gemma-4-31b-it, because .env is never pushed. If you forget about that line,
+qwen3:8b, because .env is never pushed. If you forget about that line,
 the two of you will silently be running different experiments and comparing
 incomparable results.
 
@@ -337,7 +337,7 @@ Edit this file:
 
 Find this line:
 
-    "LLM_MODEL": "gemma-4-31b-it",
+    "LLM_MODEL": "qwen3:8b",
 
 Change the value, save, then:
 
@@ -371,8 +371,8 @@ There is also a one-off way that does not touch any file at all:
 CURRENT DEFAULT
 ---------------
 
-    LLM_PROVIDER      = gemini
-    LLM_MODEL         = gemma-4-31b-it
+    LLM_PROVIDER      = local      (an Ollama server on this machine)
+    LLM_MODEL         = qwen3:8b
     EMBEDDING_PROVIDER= gemini
     EMBEDDING_MODEL   = gemini-embedding-001
 
@@ -528,8 +528,9 @@ Valid range: 0-19 for popular, 0-159 for general.
 
     --methods baselines        only the six paper baselines
     --methods direct_generation,agentic     a comma-separated subset
-    --rounds 1                 refinement rounds for our pipeline
-    --max-candidates 5         how many candidate analogies to propose
+    --rounds N                 refinement rounds (default 2 -- leave it alone
+                               for research runs; see the warning in section L)
+    --max-candidates N         candidate analogies to propose (default 8)
     --model NAME               use a different model for this run only
     --verbose                  print each agent's searches as they happen
     --output results.jsonl     save all results to a file
@@ -671,8 +672,11 @@ HOW TO USE LESS QUOTA WHILE DEVELOPING:
 
     * add --smoke
     * run one method at a time:  --methods agentic
-    * lower the work:            --rounds 1 --max-candidates 3
-    * review fewer candidates:   --critique-top-n 2
+    * (NOT for research runs) --rounds 1 --max-candidates 3 --critique-top-n 2
+      These change the METHOD, not just its cost, so results produced with them
+      cannot be compared against results from the designed settings. Use them
+      only for debugging. Project decision (2026-08-22): research runs always
+      use the full tracked defaults.
     * check plumbing for free:   --dry-run   (fake models, zero API calls)
     * slow down deliberately: put REQUEST_DELAY=2 in .env to pause 2 seconds
       before each call, which helps with per-minute limits
@@ -697,8 +701,8 @@ evaluation output already stores generation_model and evaluation_model per row).
 ABOUT THE DEFAULT MODEL (Gemma 4)
 ---------------------------------
 
-The project default is gemma-4-31b-it, an open Gemma 4 model served through the
-same Gemini API with the same API key. Two things to know:
+The project default is qwen3:8b, an open Qwen3 model run LOCALLY through
+Ollama -- no API key, no quota. Two things to know:
 
   * It is a REASONING model. It spends output tokens "thinking" before writing
     the answer, and MAX_OUTPUT_TOKENS covers thinking + answer together.

@@ -35,6 +35,7 @@ from hal.project_defaults import (
 # overrides it, secrets never get one), so changing the model in
 # hal/project_defaults.py must not require editing this file.
 TEAM_MODEL = PROJECT_DEFAULTS["LLM_MODEL"]
+TEAM_PROVIDER = PROJECT_DEFAULTS["LLM_PROVIDER"]
 
 ROLE_ENV_VARS = [
     "GENERATOR_MODEL", "CRITIC_MODEL", "ANTI_ANALOGY_MODEL", "JUDGE_MODEL",
@@ -46,15 +47,19 @@ ROLE_ENV_VARS = [
 def test_team_default_model_is_tracked_in_the_repository():
     """A shared model must be defined in the tracked file, whatever it is."""
     assert isinstance(TEAM_MODEL, str) and TEAM_MODEL.strip()
-    assert PROJECT_DEFAULTS["LLM_PROVIDER"] == "gemini"
+    # the provider must be one the factory actually knows, whatever it is
+    from hal.providers import available_providers
+
+    assert TEAM_PROVIDER in available_providers()["llm"]
     assert config_source("LLM_MODEL") in ("project", "env")
 
 
 def test_tracked_defaults_apply_without_any_env_var():
     """A fresh clone with no model values in `.env` still gets the team default."""
     settings = load_settings()
-    assert settings.llm_provider == "gemini"
+    assert settings.llm_provider == TEAM_PROVIDER
     assert settings.llm_model == TEAM_MODEL
+    # embeddings are a SEPARATE setting: generation moved local, these did not
     assert settings.embedding_provider == "gemini"
     assert settings.embedding_model == "gemini-embedding-001"
     assert settings.refinement_rounds == 2
