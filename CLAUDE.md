@@ -60,7 +60,7 @@ Three strictly separate bodies of code:
 - `google-genai` (the current SDK: `from google import genai`), `requests`, `numpy`,
   `nltk`, `python-dotenv`, `pytest`. See `requirements_project.txt`.
 - Deliberately **no** LangChain / LangGraph / CrewAI — the agent loop is ~230 readable
-  lines in `agentic_pipeline/react.py` so it can be inspected and modified for research.
+  lines in `agentic_pipeline/react.py` (234) so it can be inspected and modified for research.
 - Wikipedia via the MediaWiki API (free) as the agents' search backend.
 
 ---
@@ -73,7 +73,8 @@ hal/                     shared infrastructure — NO research logic lives here
   config.py              env var > project default > code fallback
   providers/
     base.py              LLMProvider / EmbeddingProvider / SearchProvider  (the abstraction)
-    gemini.py            Gemini + Gemma implementation
+    gemini.py            Gemini + Gemma implementation (API)
+    local.py             LocalLLMProvider — Ollama / LM Studio / llama.cpp  <- CURRENT
     search.py            WikipediaSearchProvider
     mock.py              fakes used by every test
     caching.py           CachedEmbeddingProvider
@@ -98,11 +99,15 @@ agentic_pipeline/        OUR method
 
 automatic_evaluation/    scores all 7 methods; contains NO method logic
   methods.py             maps a method name to the EXISTING implementation
-  runner.py              generate / score / resume / aggregate / CSV
+  runner.py              generate / score / resume / aggregate / CSV.
+                         Results land in results/automatic_evaluation_<model>/ derived
+                         from the models in use; rows are deduped on
+                         (dataset, method, index); pooling different models, settings or
+                         tokenizers is flagged as "MORE THAN ONE condition"
 
 examples/run_all_methods.py           run methods, inspect answers
 examples/run_automatic_evaluation.py  score them with the paper's metric
-tests/                                171 tests, all offline (mock providers)
+tests/                                212 tests, all offline (mock providers)
 ```
 
 **Flow:** input event → Generate/Search agent → candidates → *[Critic + Anti-Analogy →
@@ -134,6 +139,9 @@ Current tracked defaults: `LLM_PROVIDER=local`, `LLM_MODEL=qwen3:8b`,
 
 Per-role models (`GENERATOR_MODEL`, `CRITIC_MODEL`, `ANTI_ANALOGY_MODEL`, `JUDGE_MODEL`,
 `SUMMARIZER_MODEL`, `BASELINE_MODEL`, `EVALUATION_MODEL`) all inherit `LLM_MODEL` unless set.
+Per-role **providers** exist too (`GENERATOR_PROVIDER` … `EVALUATION_PROVIDER`), inheriting
+`LLM_PROVIDER`. That is how you generate on a local server while judging with an API model —
+`LLM_PROVIDER=local LLM_MODEL=qwen3:8b EVALUATION_PROVIDER=gemini EVALUATION_MODEL=…`.
 The model that *produces* an analogy and the model that *judges* it are deliberately separate.
 
 ---
@@ -141,7 +149,7 @@ The model that *produces* an analogy and the model that *judges* it are delibera
 ## 6. Commands
 
 ```bash
-py -m pytest tests -q                                            # 171 tests, no API quota
+py -m pytest tests -q                                            # 212 tests, no API quota
 py examples/run_all_methods.py --smoke                           # quick sanity check
 py examples/run_all_methods.py --dry-run                         # fake providers, no key
 py examples/run_automatic_evaluation.py --dataset popular --methods agentic --smoke
@@ -156,7 +164,7 @@ py examples/run_automatic_evaluation.py --dataset general --methods all --resume
 
 ## 7. Current state (verified 2026-08-22)
 
-All 171 tests pass. Working tree clean; results committed under
+All 212 tests pass. Results committed under
 `results/automatic_evaluation_gemma_4_31b/`. Everything below was produced **and judged**
 by `gemma-4-31b-it` (the default at the time), NOT by the current `qwen3:8b` default.
 
@@ -182,13 +190,13 @@ by `gemma-4-31b-it` (the default at the time), NOT by the current `qwen3:8b` def
 | twostage_generation | 3.46 | 116/160 |
 | summary_generation | 3.97 | 150/160 |
 | reflection_generation | 4.18 | 159/160 |
-| **agentic** | 4.03 | **37 scored / 59 attempted** ← incomplete |
+| **agentic** | 4.03 | **37 scored / 60 attempted** ← incomplete |
 
 ---
 
 ## 8. Open problems
 
-1. **The agentic general run is incomplete** — only 59/160 examples attempted, 37 scored,
+1. **The agentic general run is incomplete** — only 60/160 examples attempted, 37 scored,
    versus ~160 for the baselines. Its MDS is **not yet comparable**. Finish with:
    `py examples/run_automatic_evaluation.py --dataset general --methods agentic --resume`
 2. **Agentic wins on MDS but loses on Pass@1** (4.11 vs 3.95, but 0.25 vs 0.60). Plausibly
@@ -209,8 +217,11 @@ by `gemma-4-31b-it` (the default at the time), NOT by the current `qwen3:8b` def
    `max_output_tokens`. **This is the main driver of the planned move to local models**
    (section 9). The ReAct loop's strict one-JSON-object-per-turn contract is the likely
    friction point; whatever model replaces Gemma should be checked against it first.
-6. **Free-tier daily cap is per project per model.** Switching `LLM_MODEL` grants a fresh
-   bucket — useful, but never mix models within one experiment.
+6. **Free-tier daily cap is per project per model** (quotaId
+   `GenerateRequestsPerDayPerProjectPerModel-FreeTier`). Now largely moot: generation and
+   judging are local and unlimited, and only the two retrieval baselines still call the
+   Gemini API, for embeddings on a separate quota. Still relevant if anyone switches a role
+   back to an API model — and never mix models within one experiment.
 7. **Not implemented:** the prediction-usefulness evaluation from the presentation
    (forecasting with vs without analogies, Brier score on unresolved questions).
 8. Human evaluation from the paper is not replicated.
@@ -235,8 +246,41 @@ results. **Not carried** (git-ignored): `.env` and `.hal_cache/`.
 Worst case on a fresh machine is re-embedding the 658 pool events (~658 calls, a separate
 quota bucket from generation) the first time a retrieval baseline runs. Accept it.
 
-Setup on the new machine: `py -m pip install -r requirements_project.txt`, create `.env`,
-add `GEMINI_API_KEY` (or point at a local server, below).
+Setup on the new machine:
+
+1. `py -m pip install -r requirements_project.txt`
+2. `copy .env.example .env` and add `GEMINI_API_KEY` (needed only by the two retrieval
+   baselines, which use Gemini embeddings; everything else is local)
+3. `ollama pull qwen3:8b`
+4. `py -m pytest tests -q` — 212 tests, no key and no network required
+5. **Check the tokenizer** (see below)
+
+### The tokenizer decides part of the metric — check it on any new machine
+
+MDS's literal-similarity term is NLTK tokenization + stop-word removal + Jaccard. NLTK's
+corpora are *data*, not a package, so `pip` cannot install them. `hal/text_similarity.py`
+therefore downloads `punkt`, `punkt_tab` and `stopwords` **automatically on first use** —
+there is no manual step, and the `nltk.download(...)` command that used to be in
+`requirements_project.txt` is obsolete.
+
+If that download fails (offline machine, blocked network) the code silently falls back to a
+regex tokenizer, which produces **slightly different Jaccard values and therefore different
+MDS**. Measured on 60 real dimension pairs from our own results: only 17/60 identical, mean
+difference 0.0067, max 0.0505. Small, but enough that results from the two tokenizers are
+not strictly comparable.
+
+Verify after setup:
+
+```bash
+py -c "from hal.text_similarity import tokenizer_backend; print(tokenizer_backend())"
+```
+
+It must print `nltk`. If it prints `regex`, get the machine online and re-run before
+producing anything you intend to keep.
+
+This is auditable after the fact too: every result row records `"tokenizer"`, and the
+tokenizer is part of the condition key, so pooling rows scored by different tokenizers
+triggers the same `MORE THAN ONE condition` warning as mixing models or settings.
 
 ### Running the LLM locally — IMPLEMENTED
 
@@ -337,12 +381,20 @@ non-comparable with existing results. Treat it as a new condition, new results f
 merge them into the existing Gemma tables — start a new `results/automatic_evaluation_<model>/`
 directory. Every result row already records `generation_model` and `evaluation_model`.
 
-**Suggested first step on the laptop:**
+**Suggested first steps on the laptop, in order:**
 ```bash
 py -m pytest tests -q                                   # everything offline must pass
+py -c "from hal.text_similarity import tokenizer_backend; print(tokenizer_backend())"
+                                                        # MUST print nltk (see above)
 py examples/run_all_methods.py --dry-run                # no key, no network
 py examples/run_all_methods.py --methods agentic --smoke --dataset popular --index 0
 ```
+
+Also worth doing before any multi-hour job: re-run the VRAM probe on the new GPU. The
+laptop's RTX 5060 idles nearly empty where the desktop had ~700 MB in use, so it may hold
+more than `LOCAL_NUM_CTX=10240` fully on the GPU — free speed. Measure with a short call at
+each candidate window and read `size_vram / size` from `http://localhost:11434/api/ps`;
+anything below 100% is spilling to CPU.
 
 ---
 
