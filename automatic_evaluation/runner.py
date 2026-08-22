@@ -33,6 +33,7 @@ from gemini_baselines.evaluation_mds import (
 from hal.config import REPO_ROOT, get_settings
 from hal.io_utils import load_dataset, read_jsonl
 from hal.retry import ProviderError
+from hal.text_similarity import tokenizer_backend
 
 from .methods import METHOD_LABELS, GenerationConfig, MethodRunner, canonical
 
@@ -265,6 +266,11 @@ class AutomaticEvaluation:
             "timestamp": utc_now(),
             "alpha": LITERAL_THRESHOLD,
             "dimension_weights": dict(DIMENSION_WEIGHTS),
+            # Which tokenizer computed literal similarity. "nltk" is the
+            # paper's; "regex" is our fallback and gives slightly different
+            # Jaccard values, so rows with different tokenizers are not
+            # strictly comparable. Recorded so that can be checked, not assumed.
+            "tokenizer": tokenizer_backend(),
         }
 
     # -- one example ------------------------------------------------------
@@ -449,7 +455,8 @@ def _condition_key(row: Dict[str, Any]) -> str:
     Two rows only belong in the same average if the model that answered, the
     model that judged, and the pipeline settings all match.
     """
-    parts = [str(row.get("generation_model")), str(row.get("evaluation_model"))]
+    parts = [str(row.get("generation_model")), str(row.get("evaluation_model")),
+             f"tokenizer={row.get('tokenizer')}"]
     for field in ("refinement_rounds", "max_candidates", "react_max_steps",
                   "critique_top_n"):
         value = row.get(field)

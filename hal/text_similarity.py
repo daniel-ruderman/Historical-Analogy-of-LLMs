@@ -43,20 +43,49 @@ _stopwords: Set[str] = set()
 _word_tokenize = None
 
 
+def _try_nltk() -> bool:
+    """Wire up the NLTK tokenizer; ``False`` if it is not usable."""
+    from nltk.corpus import stopwords as nltk_stopwords
+    from nltk.tokenize import word_tokenize as nltk_word_tokenize
+
+    global _stopwords, _word_tokenize, _backend
+    words = set(nltk_stopwords.words("english"))
+    nltk_word_tokenize("probe sentence.")  # triggers the punkt lookup
+    _stopwords = words
+    _word_tokenize = nltk_word_tokenize
+    _backend = "nltk"
+    return True
+
+
+def _download_nltk_data() -> None:
+    """Fetch the corpora NLTK needs, quietly and only once.
+
+    The metric's literal-similarity term depends on which tokenizer runs, so a
+    machine that silently falls back to the regex tokenizer produces slightly
+    different Jaccard values -- and therefore slightly different MDS -- than one
+    with NLTK data present. Downloading automatically removes a manual setup
+    step that is easy to forget when moving the project to a new machine.
+    """
+    import nltk
+
+    for package in ("punkt", "punkt_tab", "stopwords"):
+        try:
+            nltk.download(package, quiet=True, raise_on_error=False)
+        except Exception:
+            pass
+
+
 def _init() -> None:
     global _backend, _stopwords, _word_tokenize
     if _backend is not None:
         return
     try:  # pragma: no cover - depends on the environment
-        from nltk.corpus import stopwords as nltk_stopwords
-        from nltk.tokenize import word_tokenize as nltk_word_tokenize
-
-        words = set(nltk_stopwords.words("english"))
-        nltk_word_tokenize("probe sentence.")  # triggers the punkt lookup
-        _stopwords = words
-        _word_tokenize = nltk_word_tokenize
-        _backend = "nltk"
-        return
+        return None if _try_nltk() else None
+    except Exception:
+        pass
+    try:  # pragma: no cover - one automatic attempt to fetch the missing data
+        _download_nltk_data()
+        return None if _try_nltk() else None
     except Exception:
         pass
     import re

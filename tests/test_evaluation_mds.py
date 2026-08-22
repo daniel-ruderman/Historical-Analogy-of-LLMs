@@ -18,6 +18,38 @@ from gemini_baselines.evaluation_mds import (
 )
 from hal.providers.mock import MockLLMProvider
 from hal.text_similarity import jaccard, tokenizer_backend
+from hal.wiki import WikipediaHelper
+
+@pytest.fixture
+def eval_run_row(tmp_path, mock_search, monkeypatch):
+    """One scored row produced through the real runner (mock providers)."""
+    from automatic_evaluation import AutomaticEvaluation, EvaluationConfig
+    from automatic_evaluation.methods import GenerationConfig, MethodRunner
+
+    class Stub(MethodRunner):
+        def __init__(self):
+            super().__init__(GenerationConfig())
+
+        def run(self, method, event):
+            return {"analogy_event": "Revolutions of 1848", "candidate": [],
+                    "extra": {}}
+
+    def responder(prompt):
+        if "event summary robot" in prompt:
+            return ("1. Summary: a. 2. Background: b. 3. Process: c. "
+                    "4. Result: d.")
+        return "3"
+
+    context = EvaluationContext(
+        llm=MockLLMProvider(responses=responder, model="m"),
+        wiki=WikipediaHelper(mock_search, max_chars=4096))
+    ev = AutomaticEvaluation(EvaluationConfig(methods=["agentic"],
+                                              output_dir=tmp_path),
+                             evaluation_context=context, method_runner=Stub())
+    return ev.evaluate_example("popular", 0,
+                               {"event_name": "Arab Spring",
+                                "event_intro": "uprisings"}, "agentic")
+
 
 FOUR_DIM = ("1. Summary: A wave of uprisings. 2. Background: Economic stagnation. "
             "3. Process: Protests spread. 4. Result: Some regimes fell.")
@@ -159,3 +191,35 @@ def test_pass_1_matches_reference_answers(mock_wiki):
         {"target_event": "Cold War", "analogy_event": "Spanish flu"},
     ]
     assert pass_1(testset, context) == 0.5
+
+
+# --- tokenizer provenance -------------------------------------------------
+def test_nltk_data_is_fetched_automatically_not_by_hand():
+    """Moving to a new machine must not silently change the metric.
+
+    NLTK's corpora are data, so pip cannot install them; hal.text_similarity
+    downloads them on first use instead. If that ever regressed, a fresh
+    machine would fall back to the regex tokenizer and produce slightly
+    different Jaccard values than the ones already committed.
+    """
+    import hal.text_similarity as ts
+
+    assert hasattr(ts, "_download_nltk_data")
+    assert tokenizer_backend() in ("nltk", "regex")
+
+
+def test_results_record_which_tokenizer_scored_them(eval_run_row):
+    """Comparability must be checkable from the data, not assumed."""
+    assert eval_run_row["tokenizer"] in ("nltk", "regex")
+
+
+def test_rows_scored_by_different_tokenizers_are_flagged_as_mixed():
+    from automatic_evaluation import COMPONENT_COLUMNS, aggregate
+
+    cols = {c: 1.0 for c in COMPONENT_COLUMNS}
+    base = dict(dataset="popular", method="agentic",
+                method_label="Our Agentic Pipeline", status="ok",
+                generation_model="qwen3:8b", evaluation_model="qwen3:8b", **cols)
+    rows = [{**base, "index": 0, "tokenizer": "nltk"},
+            {**base, "index": 1, "tokenizer": "regex"}]
+    assert aggregate(rows, "popular", methods=["agentic"])[0]["mixed_conditions"]
