@@ -1,0 +1,55 @@
+{
+  "run_id": "dryrun_smoke_003",
+  "contrasts": {
+    "primary_practical_brier": {
+      "mean": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "p_value": 1.0,
+      "n": 2,
+      "n_clusters": 2,
+      "condition_a": "historical_analogy",
+      "condition_b": "plain",
+      "analysis_type": "confirmatory"
+    },
+    "primary_practical_log_loss": {
+      "mean": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "p_value": 1.0,
+      "n": 2,
+      "n_clusters": 2,
+      "condition_a": "historical_analogy",
+      "condition_b": "plain",
+      "analysis_type": "exploratory"
+    },
+    "secondary_mechanistic_brier": {
+      "mean": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "p_value": 1.0,
+      "n": 2,
+      "n_clusters": 2,
+      "condition_a": "historical_analogy",
+      "condition_b": "matched_deliberation",
+      "analysis_type": "confirmatory_secondary"
+    },
+    "secondary_mechanistic_log_loss": {
+      "mean": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "p_value": 1.0,
+      "n": 2,
+      "n_clusters": 2,
+      "condition_a": "historical_analogy",
+      "condition_b": "matched_deliberation",
+      "analysis_type": "exploratory"
+    }
+  },
+  "coverage": {
+    "plain": 1.0,
+    "historical_analogy": 1.0,
+    "matched_deliberation": 1.0
+  },
+  "n_forecasts": 6
+}

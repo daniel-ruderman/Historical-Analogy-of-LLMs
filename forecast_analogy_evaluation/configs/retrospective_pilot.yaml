@@ -1,0 +1,82 @@
+# Retrospective pilot configuration
+# See docs/retrospective_pilot.md
+
+study:
+  name: retrospective_pilot
+  stage: retrospective
+  version: "1.0"
+
+benchmark:
+  source: forecastbench
+  dataset_repo: "https://github.com/forecastingresearch/forecastbench-datasets"
+  # Record exact commit after download:
+  dataset_commit: null
+  question_types: [binary]
+  # Use one full round or a stratified sample:
+  sampling:
+    mode: stratified_sample  # full_round | stratified_sample
+    n_questions: 100
+    strata:
+      market: 50
+      dataset: 50
+    seed: 42
+
+model:
+  llm: qwen3:8b
+  provider: local
+  base_url: "http://127.0.0.1:11434"
+  temperature: 0.1
+  max_output_tokens: 4096
+  knowledge_cutoff: null  # fill from model card at run time
+
+arms:
+  main:
+    - plain
+    - matched_deliberation
+    - historical_analogy
+  diagnostic:
+    - shuffled_analogy
+    - analogy_name_only
+
+prompts:
+  forecast: prompts/forecast_v1.txt
+  matched_deliberation: prompts/matched_deliberation_v1.txt
+  analysis_packet_wrapper: prompts/analysis_packet_wrapper_v1.txt
+  analogy_packet_format: prompts/analogy_packet_format_v1.txt
+
+analogy_pipeline:
+  # Parent repo root (agentic_pipeline/, hal/, etc.)
+  repo_path: ".."
+  refinement_rounds: 2
+  react_max_steps: 4
+  search_top_k: 4
+  search_provider: wikipedia
+
+leakage:
+  enforce_temporal_cutoff: true
+  block_forecast_question_search: true
+  block_market_prices: true
+  cache_wikipedia: true
+  cache_dir: data/cache
+
+compute:
+  randomize_arm_order: true
+  separate_contexts: true
+  max_retries: 3
+  cluster:
+    partition: gpu.q
+    account: habib-lab
+    time: "04:00:00"
+    mem: 32G
+    gres: "gpu:1"
+
+output:
+  runs_dir: runs
+  manifests_dir: data/manifests
+
+analysis:
+  primary_contrast: [historical_analogy, plain]
+  secondary_contrast: [historical_analogy, matched_deliberation]
+  clip_bounds: [0.01, 0.99]
+  bootstrap_samples: 10000
+  cluster_by: [round_id, event_series_id]

@@ -1,0 +1,5 @@
+# Analysis packet wrapper (v1)
+# Inserted into forecast_v1.txt as {analysis_packet} for non-plain arms.
+
+== Analysis packet ({packet_type}) ==
+{packet_content}
