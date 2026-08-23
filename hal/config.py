@@ -213,6 +213,9 @@ class Settings:
     # --- misc ------------------------------------------------------------
     wiki_lang: str = "en"
     wiki_max_chars: int = 4096  # evaluation.py truncates summaries at 4096
+    # Seconds to wait before each MediaWiki call. Separate from REQUEST_DELAY
+    # because that one also paces the LLM, and a local Ollama needs no pacing.
+    wiki_request_delay: float = 0.2
     api_key: Optional[str] = None
     gemini_api_surface: str = "auto"  # auto | models | interactions
 
@@ -294,6 +297,7 @@ def load_settings(**overrides) -> Settings:
         local_think=_env("LOCAL_THINK", "false"),
         local_timeout=_env_float("LOCAL_TIMEOUT", 600.0),
         wiki_lang=_env("WIKI_LANG", "en"),
+        wiki_request_delay=_env_float("WIKI_REQUEST_DELAY", 0.2),
         api_key=_env("GEMINI_API_KEY") or _env("GOOGLE_API_KEY"),
         gemini_api_surface=_env("GEMINI_API_SURFACE", "auto"),
     )

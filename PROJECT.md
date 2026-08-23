@@ -387,9 +387,50 @@ that single run.
   honoured; permanent failures (bad key, unknown model) fail fast instead of burning quota.
 - **Embedding cache** (`hal/cache.py`) keyed by *provider + model + dimensionality + text hash*,
   so vectors from different embedding models never mix. The 658-event pool is embedded once.
-- **Wikipedia cache** for page lookups and searches.
+- **Wikipedia cache** for page lookups and searches. It stores only *answers*, never
+  *failures* — see below.
 - `REQUEST_DELAY` adds a fixed pause before each call if you hit per-minute limits.
+  `WIKI_REQUEST_DELAY` (default 0.2 s) does the same for MediaWiki alone, since a local
+  Ollama needs no pacing but Wikipedia does.
 - Caches only avoid repeating identical external calls; they are never part of a result.
+
+### A cached failure is not a result (bug found 2026-08-22, run invalidated)
+
+`WikipediaSearchProvider` used to write an empty result to the cache whenever a lookup threw:
+
+```python
+except Exception:
+    titles = []              # a timeout, a 429, a reset connection
+self._cache.set(key, titles) # ...remembered forever as "no such event"
+```
+
+The first full `popular` run on `qwen3:8b` issued thousands of unpaced MediaWiki calls over
+about ten hours. Wikipedia throttled it hard enough that lookups failed even after three
+retries each, and every failure was then cached permanently. **1048 of the 1171 cache entries
+(89%) were stored failures**, including real articles such as `Vietnam War`.
+
+The damage was invisible and progressive — each method inherited a more poisoned cache than
+the last, so the results degraded in run order rather than by method quality:
+
+| method | started | scored | discarded |
+|---|---|---|---|
+| direct_retrieval | 10:37 | 25 | 0 |
+| twostage_retrieval | 16:36 | 14 | 6 |
+| direct_generation | 16:37 | 17 | 4 |
+| twostage_generation | 17:30 | 7 | 13 |
+| summary_generation | 18:41 | 7 | 13 |
+| reflection_generation | 19:36 | 4 | 16 |
+| agentic | 21:01 | 6 | 14 |
+
+The agentic pipeline ran last and lost the most: its MDS of 3.173 rested on 6 of 20 examples.
+Re-resolving its answers against a clean cache, **all 20 resolve** — nothing was wrong with
+the answers. That run is void and must not be quoted.
+
+Now: a failed *call* returns empty without being cached, while an empty answer from a call
+that *succeeded* (Wikipedia genuinely reporting no such page) is still cached. The provider
+also counts failures in `failed_calls` and prints a warning the first time one occurs, because
+a run that silently loses thousands of lookups is indistinguishable from a model inventing
+thousands of fake events. `tests/test_wikipedia_cache.py` pins both halves.
 
 ## 8. Installation
 

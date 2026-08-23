@@ -138,6 +138,14 @@ PROJECT_DEFAULTS: Dict[str, str] = {
 
     # --- misc --------------------------------------------------------------
     "WIKI_LANG": "en",
+    # Seconds to wait before each MediaWiki request. The popular run of
+    # 2026-08-22 issued thousands of unpaced Wikipedia calls over ~10 hours and
+    # was throttled so persistently that 1048 lookups failed even after three
+    # retries each -- and, because failures were cached, every one of those
+    # events became permanently "nonexistent" (see PROJECT.md). This paces the
+    # calls to ~5/s. Deliberately separate from REQUEST_DELAY, which also paces
+    # the LLM: a local Ollama needs no pacing at all.
+    "WIKI_REQUEST_DELAY": "0.2",
 }
 
 

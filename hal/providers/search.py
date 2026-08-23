@@ -59,6 +59,8 @@ class WikipediaSearchProvider(SearchProvider):
             self.settings.cache_dir, f"wikipedia_{self.lang}",
             enabled=self.settings.cache_enabled,
         )
+        self.failed_calls = 0
+        self._warned = False
 
     # -- internals --------------------------------------------------------
     def _api(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -70,8 +72,22 @@ class WikipediaSearchProvider(SearchProvider):
             max_retries=min(self.settings.max_retries, 3),
             base_delay=1.0,
             max_delay=15.0,
+            request_delay=self.settings.wiki_request_delay,
             description="wikipedia api call",
         )
+
+    def _note_failure(self, what: str, exc: Exception) -> None:
+        """Count a failed lookup and say so once.
+
+        A long run that quietly loses thousands of Wikipedia calls looks exactly
+        like a run where the model invented thousands of fake events. Saying it
+        out loud once, and counting the rest, keeps the two apart.
+        """
+        self.failed_calls += 1
+        if not self._warned:
+            self._warned = True
+            print(f"  ! wikipedia lookup failed ({what}: {exc}). Failures are NOT "
+                  f"cached; affected events are retried on the next run.")
 
     # -- SearchProvider ---------------------------------------------------
     def search_titles(self, query: str, top_k: int = 5) -> List[str]:
@@ -85,9 +101,14 @@ class WikipediaSearchProvider(SearchProvider):
                 "action": "query", "list": "search", "srsearch": query,
                 "srlimit": max(1, top_k),
             })
-            titles = [hit["title"] for hit in data.get("query", {}).get("search", [])]
-        except Exception:
-            titles = []
+        except Exception as exc:
+            # A failed CALL is not an empty RESULT. Caching [] here would turn a
+            # rate-limit or a timeout into a permanent "this event does not
+            # exist", which is what invalidated the popular run of 2026-08-22.
+            self._note_failure(f"search {query!r}", exc)
+            return []
+        titles = [hit["title"] for hit in data.get("query", {}).get("search", [])]
+        # An empty list from a call that SUCCEEDED is a real answer, and cached.
         self._cache.set(key, titles)
         return titles
 
@@ -117,13 +138,17 @@ class WikipediaSearchProvider(SearchProvider):
                 "action": "query", "prop": "extracts", "exintro": 1,
                 "explaintext": 1, "redirects": 1, "titles": title,
             })
-            pages = data.get("query", {}).get("pages", [])
-            if isinstance(pages, dict):  # formatversion=1 shape
-                pages = list(pages.values())
-            page = pages[0] if pages else None
-        except Exception:
-            page = None
+        except Exception as exc:
+            # As in search_titles: never let a failed call be remembered as an
+            # absent page.
+            self._note_failure(f"page {title!r}", exc)
+            return None
+        pages = data.get("query", {}).get("pages", [])
+        if isinstance(pages, dict):  # formatversion=1 shape
+            pages = list(pages.values())
+        page = pages[0] if pages else None
         if not page or page.get("missing") or not page.get("extract"):
+            # Wikipedia answered and said there is no such page: a real result.
             self._cache.set(key, {})
             return None
         extract = page["extract"].strip()
