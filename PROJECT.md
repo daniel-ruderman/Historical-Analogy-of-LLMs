@@ -659,11 +659,12 @@ literal similarity, it will not reward an analogy that merely reuses the input e
 vocabulary. Note that MDS values are comparable only when the *same* judge model is used for
 every method being compared.
 
-**Second strategy — usefulness for prediction (planned, not implemented).** Test whether better
-analogies improve forecasting: generate analogies with each method, ask the same LLM to predict
-an outcome with and without them, and score with Brier/log score. To avoid data leakage from
-resolved historical questions, this must use *unresolved* forecasting questions (ForecastBench,
-Metaculus FutureEval), recording predictions before resolution. Not part of this codebase yet.
+**Second strategy — usefulness for prediction.** Test whether better analogies improve
+forecasting: generate analogies with each method, ask the same LLM to predict an outcome with
+and without them, and score with Brier/log score. Implemented in
+[`forecast_analogy_evaluation/`](forecast_analogy_evaluation/) — see
+[`docs/evaluation_protocol.md`](forecast_analogy_evaluation/docs/evaluation_protocol.md).
+Uses unresolved or time-split ForecastBench questions to limit leakage.
 
 ### 12.1 The automatic evaluation runner
 

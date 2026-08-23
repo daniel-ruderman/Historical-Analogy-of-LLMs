@@ -4,7 +4,17 @@
 # Caches produced by our extension (embeddings, Wikipedia pages)
 .hal_cache/
 
+# Large local/shared model artifacts
+models/
 
+# Forecast evaluation artifacts (see forecast_analogy_evaluation/)
+forecast_analogy_evaluation/logs/
+forecast_analogy_evaluation/runs/
+forecast_analogy_evaluation/data/raw/
+forecast_analogy_evaluation/data/cache/
+
+# Local cluster job logs
+logs/
 
 # IDE / editor configuration -- local to each developer, never shared.
 # NOTE: files already tracked before this rule was added stay tracked until

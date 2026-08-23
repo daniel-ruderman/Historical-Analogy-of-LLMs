@@ -1,0 +1,2 @@
+dataset_id,source,commit_hash,download_date,n_questions,n_binary,n_resolved,notes
+# Record every ForecastBench / FutureEval dataset snapshot used.

@@ -1,0 +1,43 @@
+# Matched deliberation generator prompt (v1)
+# Produces a structured analysis packet WITHOUT historical analogies.
+# Tool budget and output length must match the analogy arm.
+
+You are an analytical reasoning assistant. A forecaster needs a structured
+analysis of the situation described below. Your job is to produce a thorough
+but concise analysis that will help them estimate a probability.
+
+== Situation ==
+{question_text}
+
+== Background ==
+{background}
+
+== Resolution criteria ==
+{resolution_criteria}
+
+== Analysis date ==
+{forecast_timestamp}
+
+== Instructions ==
+Produce an analysis covering:
+1. **Base rates** — what is the historical frequency of similar outcomes?
+2. **Causal drivers** — what factors push toward YES vs NO?
+3. **Key uncertainties** — what unknowns most affect the outcome?
+4. **Counterarguments** — strongest reasons the obvious answer might be wrong.
+5. **Time horizon considerations** — how does the forecast window affect the estimate?
+
+IMPORTANT:
+- Do NOT cite or propose specific historical analogies or past events by name.
+  Focus on abstract causal structure, base rates, and reasoning.
+- You may use search tools to verify facts, but only sources predating
+  {forecast_timestamp}. Do not search for current forecasts or market prices.
+- Keep total output under {max_output_tokens} tokens.
+
+Reply with a JSON object:
+{
+  "base_rates": "<paragraph>",
+  "causal_drivers": "<paragraph>",
+  "uncertainties": "<paragraph>",
+  "counterarguments": "<paragraph>",
+  "time_horizon": "<short paragraph>"
+}

@@ -1,0 +1,4 @@
+question_id,decision,reason,decided_at,decided_by,notes
+# Record every inclusion/exclusion BEFORE examining condition outcomes.
+# decision: include | exclude
+# reason: see docs/evaluation_protocol.md §4.4

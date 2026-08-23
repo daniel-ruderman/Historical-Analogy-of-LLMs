@@ -1,0 +1,30 @@
+# Analogy packet formatter (v1)
+# Converts agentic pipeline FinalAnalogyResult into forecaster-readable text.
+# Used by the runner after analogy generation completes.
+
+== Historical analogy analysis ==
+
+**Winning analogy:** {analogy_name}
+
+**Explanation:**
+{explanation}
+
+**Structural similarities:**
+{similarities}
+
+**Key differences:**
+{differences}
+
+**Counterexamples (cases where similar logic failed):**
+{counterexamples}
+
+**Limitations of this analogy:**
+{limitations}
+
+**Evidence sources:**
+{evidence_urls}
+
+---
+This analogy was selected by a multi-agent pipeline that searched for structurally
+similar historical events, critiqued candidates, and tested for anti-analogies.
+Use it to inform your forecast, but weigh the differences and limitations carefully.

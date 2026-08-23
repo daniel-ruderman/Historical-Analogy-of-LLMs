@@ -1,0 +1,78 @@
+# Prospective ForecastBench configuration
+# See docs/prospective_preregistration.md
+# STATUS: draft — finalize after retrospective pilot
+
+study:
+  name: prospective_forecastbench
+  stage: prospective
+  version: "1.0-draft"
+  preregistration_doc: docs/prospective_preregistration.md
+  preregistration_frozen: false
+
+benchmark:
+  source: forecastbench
+  rounds: 6
+  submission:
+    register_email: null  # fill before first round
+    gcp_folder: null
+    slots:
+      plain: 1
+      matched_deliberation: 2
+      historical_analogy: 3
+  question_types: [binary]
+  sampling:
+    mode: full_round
+    n_questions: null  # all eligible per round
+
+model:
+  llm: qwen3:8b
+  provider: local
+  base_url: "http://127.0.0.1:11434"
+  temperature: 0.1
+  max_output_tokens: 4096
+  knowledge_cutoff: null
+
+arms:
+  main:
+    - plain
+    - matched_deliberation
+    - historical_analogy
+  diagnostic: []  # none in confirmatory stage
+
+prompts:
+  forecast: prompts/forecast_v1.txt
+  matched_deliberation: prompts/matched_deliberation_v1.txt
+  analysis_packet_wrapper: prompts/analysis_packet_wrapper_v1.txt
+  analogy_packet_format: prompts/analogy_packet_format_v1.txt
+
+analogy_pipeline:
+  repo_path: ".."
+  refinement_rounds: 2
+  react_max_steps: 4
+  search_top_k: 4
+  search_provider: wikipedia
+
+leakage:
+  enforce_temporal_cutoff: true
+  block_forecast_question_search: true
+  block_market_prices: true
+  timestamp_and_hash_artifacts: true
+
+stopping:
+  fixed_rounds: 6
+  optional_stopping: false
+
+analysis:
+  primary_contrast: [historical_analogy, plain]
+  secondary_contrast: [historical_analogy, matched_deliberation]
+  clip_bounds: [0.01, 0.99]
+  bootstrap_samples: 10000
+  cluster_by: [round_id, event_series_id]
+  alpha: 0.05
+  power_target: 0.80
+  mde_brier: 0.01  # minimum detectable effect
+
+output:
+  runs_dir: runs
+  manifests_dir: data/manifests
+  results_dir: results

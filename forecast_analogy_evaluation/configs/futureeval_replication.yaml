@@ -1,0 +1,67 @@
+# FutureEval replication configuration
+# See docs/futureeval_replication.md
+# STATUS: planned — begin after ForecastBench preregistration is frozen
+
+study:
+  name: futureeval_replication
+  stage: replication
+  version: "1.0"
+  depends_on: prospective_forecastbench
+
+benchmark:
+  source: metaculus_futureeval
+  tournament: seasonal_bot  # seasonal_bot | minibench (not recommended)
+  url: "https://www.metaculus.com/futureeval/"
+  question_formats: [binary, multiple_choice, numeric, discrete]
+
+bots:
+  plain:
+    username: hal-forecast-plain
+    arm: plain
+    token_env: METACULUS_TOKEN_PLAIN
+  matched_deliberation:
+    username: hal-forecast-delib
+    arm: matched_deliberation
+    token_env: METACULUS_TOKEN_DELIB
+  historical_analogy:
+    username: hal-forecast-analogy
+    arm: historical_analogy
+    token_env: METACULUS_TOKEN_ANALOGY
+
+prerequisites:
+  - Create three Metaculus bot accounts
+  - Request parallel bot identity permission from Metaculus organizers
+  - Request expanded research data access
+  - Fork/adapt metac-bot-template
+
+model:
+  llm: qwen3:8b
+  provider: local
+  temperature: 0.1
+  max_output_tokens: 4096
+
+prompts:
+  forecast: prompts/forecast_v1.txt
+  matched_deliberation: prompts/matched_deliberation_v1.txt
+  analysis_packet_wrapper: prompts/analysis_packet_wrapper_v1.txt
+  analogy_packet_format: prompts/analogy_packet_format_v1.txt
+
+analogy_pipeline:
+  repo_path: ".."
+  refinement_rounds: 2
+  react_max_steps: 4
+
+scoring:
+  primary_metric: raw_log_loss  # not peer-relative spot score
+  descriptive_metric: peer_spot_score
+  clip_bounds: [0.01, 0.99]
+
+replication_criteria:
+  sign_agreement: true
+  ci_overlap: true
+  min_coverage: 0.90
+
+output:
+  runs_dir: runs
+  manifests_dir: data/manifests
+  results_dir: results

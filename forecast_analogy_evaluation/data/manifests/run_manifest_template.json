@@ -1,0 +1,28 @@
+{
+  "run_id": "EXAMPLE_RUN_ID",
+  "stage": "retrospective_pilot",
+  "config_path": "configs/retrospective_pilot.yaml",
+  "started_at": "2026-08-23T12:00:00Z",
+  "completed_at": null,
+  "model": "qwen3:8b",
+  "prompt_versions": {
+    "forecast": "forecast_v1",
+    "matched_deliberation": "matched_deliberation_v1",
+    "analogy_packet_format": "analogy_packet_format_v1"
+  },
+  "n_questions": 0,
+  "arms": ["plain", "matched_deliberation", "historical_analogy"],
+  "status": "running",
+  "notes": "Replace with actual run metadata.",
+  "git_commit": "",
+  "environment": {
+    "hostname": "",
+    "python_version": "",
+    "ollama_version": "",
+    "gpu": ""
+  },
+  "artifact_hashes": {
+    "forecasts.jsonl": null,
+    "analysis_packets.jsonl": null
+  }
+}
