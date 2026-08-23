@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from .cli import build_parser, make_context, run_over_dataset
-from .common import BaselineContext, clean_answer, output_row
+from .common import BaselineContext, extract_analogy_answer, output_row
 from .direct_retrieval import get_pool, get_similar_events
 from . import prompts
 
@@ -46,7 +46,7 @@ def run(event: Dict[str, Any], context: Optional[BaselineContext] = None,
     answer = llm_choice(event, candidate, context) if candidate else ""
     return output_row(
         event,
-        clean_answer(answer),
+        extract_analogy_answer(answer),
         candidate=[[e["history_event_text"] for e in candidate]],
     )
 

@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 from .cli import build_parser, make_context, run_over_dataset
 from .common import (
     BaselineContext,
-    clean_answer,
+    extract_analogy_answer,
     get_candidate_details,
     output_row,
     parse_candidate_list,
@@ -52,7 +52,6 @@ def llm_choice(event: Dict[str, Any], candidate: List[Dict[str, Any]],
             ),
             input_name=event["event_name"],
         ),
-        stop=["\n"],
     )
 
 
@@ -65,7 +64,7 @@ def run(event: Dict[str, Any], context: Optional[BaselineContext] = None) -> Dic
         # an empty candidate list, we return an empty answer instead.
         return output_row(event, "", candidate=[candidate])
     answer = llm_choice(event, candidate_with_details, context)
-    return output_row(event, clean_answer(answer), candidate=[candidate])
+    return output_row(event, extract_analogy_answer(answer), candidate=[candidate])
 
 
 def main() -> None:

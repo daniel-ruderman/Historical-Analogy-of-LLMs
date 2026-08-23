@@ -7,6 +7,7 @@ here corresponds to a function in ``framework/`` -- the docstrings name it.
 from __future__ import annotations
 
 import ast
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
@@ -286,3 +287,95 @@ def clean_answer(text: str) -> str:
         if text.startswith(prefix):
             text = text[len(prefix):].strip()
     return text.split("\n")[0].strip().strip(".").strip()
+
+
+# The generation prompts are completion-style: they demonstrate a layout and
+# stop mid-pattern at "Historical Analogies Events:", expecting the model to
+# continue with the event name alone. A completion model does exactly that, and
+# for those answers :func:`clean_answer` is all that is ever needed. A
+# chat-tuned model instead restarts the layout and puts its answer in the slot
+# the prompt defines, several lines down and often in markdown -- so the answer
+# is present and correct, just not on line one. These two patterns find it
+# there without changing anything about what the model was asked.
+# Both slots the paper's generation prompts end on: the "Historical Analogies
+# Events:" label (DIRECT_GENERATION, SUMMARY_CHOICE, RETRIEVAL_CHOICE) and the
+# sentence TWOSTAGE_CHOICE trails off in mid-clause.
+_ANSWER_MARKERS = (
+    re.compile(r"(?i)historical\s+analog(?:y|ies)\s+events?\s*:?"),
+    re.compile(r"(?i)most\s+appropriate\s+one\s+to\s+use\s+as\s+an\s+analogy"
+               r"\s+for\s+.*?\s+is\b:?"),
+)
+# Lines that are prompt scaffolding echoed back, never an event name.
+_TEMPLATE_LINE = re.compile(
+    r"(?i)^(?:=+.*"
+    r"|answer\s+the\s+following.*"
+    r"|(?:answer|analogy|case|input\s+event|historical\s+analog\w*\s+events?)\s*:?"
+    r")$"
+)
+
+
+_ANSWER_PREFIXES = ("Historical Analogies Events:", "Final Answer:", "Answer:")
+
+
+def _tidy_line(line: str) -> str:
+    """Reduce one candidate line to a bare event name.
+
+    Emphasis markers are removed *throughout* the line, not just at its ends:
+    chat models write "is the **French Revolution**", where stripping only the
+    edges would leave the asterisks in place.
+    """
+    line = (line or "").strip()
+    line = re.sub(r"^#{1,6}\s*", "", line)          # markdown heading
+    line = re.sub(r"^[-*•>\s]+", "", line)     # bullet or quote marker
+    line = re.sub(r"[*_`]", "", line)               # bold/italic/code, anywhere
+    line = re.sub(r"^[^\w\"'(\[]+", "", line)       # emoji and other decoration
+    line = line.strip()
+    for prefix in _ANSWER_PREFIXES:                 # as in clean_answer
+        if line.lower().startswith(prefix.lower()):
+            line = line[len(prefix):].strip()
+    return line.strip().strip(".").strip()
+
+
+def _first_event_line(candidates: Sequence[str]) -> str:
+    """First candidate line that is an event name rather than prose furniture."""
+    for candidate in candidates:
+        tidied = _tidy_line(candidate)
+        if not tidied:
+            continue
+        if tidied.endswith(":"):
+            # A lead-in such as "the best historical analogy is:" -- the name is
+            # on a following line.
+            continue
+        if _TEMPLATE_LINE.match(tidied):
+            continue
+        return tidied
+    return ""
+
+
+def extract_analogy_answer(text: str) -> str:
+    """Recover the single event name a generation baseline produced.
+
+    Returns ``""`` when the reply contains only prompt scaffolding and no event
+    name. That is deliberate: an empty answer becomes ``no_analogy`` and is left
+    out of the averages, whereas returning the scaffolding would hand the judge
+    a string like ``"==== Answer"`` to score as though it were a real analogy.
+
+    For a reply that is just the event name -- the format the paper's models
+    produce -- this returns exactly what :func:`clean_answer` returns.
+    """
+    raw = (text or "").strip()
+    if not raw:
+        return ""
+    lines = raw.splitlines()
+    for index, line in enumerate(lines):
+        match = next((m for m in (p.search(line) for p in _ANSWER_MARKERS) if m), None)
+        if not match:
+            continue
+        # The name may follow the marker on the same line or on one of the next
+        # few (blank lines and markdown padding are common in between).
+        found = _first_event_line([line[match.end():]] + lines[index + 1:index + 5])
+        if found:
+            return found
+    # No marker at all: the reply is free prose, so read from the top, skipping
+    # any lead-in sentence.
+    return _first_event_line(lines[:8])

@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 from .cli import build_parser, make_context, run_over_dataset
 from .common import (
     BaselineContext,
-    clean_answer,
+    extract_analogy_answer,
     event_analysis,
     four_dimension_text,
     get_candidate_details,
@@ -56,7 +56,6 @@ def llm_choice(event: Dict[str, Any], candidate: List[Dict[str, Any]],
             input_event=four_dimension_text(event),
             candidate_events="\n".join(four_dimension_text(e) for e in candidate),
         ),
-        stop=["\n"],
     )
 
 
@@ -68,7 +67,7 @@ def run(event: Dict[str, Any], context: Optional[BaselineContext] = None) -> Dic
     if not candidate_with_details:
         return output_row(event, "", candidate=[candidate])
     answer = llm_choice(event, candidate_with_details, context)
-    return output_row(event, clean_answer(answer), candidate=[candidate])
+    return output_row(event, extract_analogy_answer(answer), candidate=[candidate])
 
 
 def main() -> None:

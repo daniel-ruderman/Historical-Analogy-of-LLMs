@@ -9,12 +9,15 @@ from gemini_baselines.evaluation_mds import (
     DIMENSIONS,
     LITERAL_THRESHOLD,
     EvaluationContext,
+    ScoreParseError,
     abstract_similarity,
     extract_features,
     jacc,
     mds_from_scores,
     multi_dimensional_similarity,
+    parse_abstract_score,
     pass_1,
+    score_sample_detailed,
 )
 from hal.providers.mock import MockLLMProvider
 from hal.text_similarity import jaccard, tokenizer_backend
@@ -122,8 +125,64 @@ def test_abstract_similarity_clamps_out_of_range_scores(mock_wiki):
     assert abstract_similarity("a", "b", context_with(["9"], mock_wiki)) == 4
 
 
-def test_abstract_similarity_survives_unusable_output(mock_wiki):
-    assert abstract_similarity("a", "b", context_with(["no idea"], mock_wiki)) == 1
+def test_abstract_similarity_refuses_to_invent_a_score(mock_wiki):
+    # Scoring an unreadable reply 1 would fabricate a judgement AND drag the
+    # average down. The sample is reported unscored instead.
+    with pytest.raises(ScoreParseError):
+        abstract_similarity("a", "b", context_with(["no idea"], mock_wiki))
+
+
+# --- score parsing --------------------------------------------------------
+# The judge prompt ends with "Score:" and expects a bare digit; chat-tuned
+# models answer in prose instead. Parsing must survive that without letting the
+# discarded reasoning decide the metric.
+@pytest.mark.parametrize("reply, expected, how", [
+    ("3", 3, "bare"),                                    # the paper's format
+    ("  3\n", 3, "bare"),
+    ("Score: 2 -- the topics differ.", 2, "anchored"),
+    ("**Score: 4**\n\n**Reasoning:** both describe...", 4, "anchored"),   # qwen3
+    ("score:1", 1, "anchored"),
+    ("I would say 3 out of 4.", 3, "scan"),
+])
+def test_parse_abstract_score_reads_the_verdict(reply, expected, how):
+    assert parse_abstract_score(reply) == (expected, how)
+
+
+def test_parse_abstract_score_is_not_fooled_by_a_leading_restatement(mock_wiki):
+    # The prompt itself teaches the model to write "Description 1"/"Description
+    # 2", so the first digit in the reply is not necessarily the verdict. The
+    # original's re.search(r"\d+") would return 1 here.
+    reply = "Description 1 and Description 2 share a topic.\n\nScore: 3"
+    assert parse_abstract_score(reply) == (3, "anchored")
+    assert abstract_similarity("a", "b", context_with([reply], mock_wiki)) == 3
+
+
+def test_parse_abstract_score_ignores_years(mock_wiki):
+    reply = "Both happened after 1989 and are closely related. Score: 4"
+    assert parse_abstract_score(reply) == (4, "anchored")
+
+
+def test_parse_abstract_score_rejects_a_reply_with_no_score():
+    with pytest.raises(ScoreParseError):
+        parse_abstract_score("the two texts are not comparable")
+    with pytest.raises(ScoreParseError):
+        parse_abstract_score("")
+
+
+def test_abstract_similarity_records_how_each_score_was_read(mock_wiki):
+    context = context_with(["3", "**Score: 2**", "I'd say 4 here"], mock_wiki)
+    for _ in range(3):
+        abstract_similarity("a", "b", context)
+    assert context.score_parses == {"bare": 1, "anchored": 1, "scan": 1}
+
+
+def test_unreadable_judgement_leaves_the_sample_unscored(mock_wiki, sample_event):
+    # Four dimension summaries, then a judge reply with no score in it.
+    context = context_with([FOUR_DIM, FOUR_DIM, "no idea"], mock_wiki)
+    row, status = score_sample_detailed(
+        {**sample_event, "analogy_event": "Revolutions of 1848"}, context)
+    assert row is None
+    assert status == "unparseable_score"
 
 
 def test_abstract_similarity_goes_through_the_provider(mock_wiki):

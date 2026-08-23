@@ -1,0 +1,8 @@
+method,method_label,n_evaluated,n_attempted,TAbs,TLit,TAll,BAbs,BLit,BAll,PAbs,PLit,PAll,RAbs,RLit,RAll,MDS,Pass@1,generation_model,evaluation_model
+direct_retrieval,Direct Retrieval,20,20,2.95,0.1555,0.5451,2.85,0.1003,0.7005,2.75,0.1129,0.626,2.95,0.1311,0.6345,3.494,0.45,qwen3:8b,qwen3:8b
+twostage_retrieval,Two-stage Retrieval,14,20,3.1429,0.1479,0.6019,3.0714,0.1006,0.7577,2.8571,0.1225,0.6338,2.7857,0.1289,0.6131,3.5524,0.7,qwen3:8b,qwen3:8b
+direct_generation,Direct Generation,16,20,2.125,0.0814,0.5534,2.25,0.0938,0.5673,2.1875,0.0607,0.6305,2.5,0.0927,0.6383,3.3816,0.2,qwen3:8b,qwen3:8b
+twostage_generation,Two-stage Generation,7,20,2.4286,0.2331,0.5473,2.4286,0.2361,0.556,2.2857,0.215,0.5732,2.4286,0.2333,0.5596,3.0952,0.1,qwen3:8b,qwen3:8b
+summary_generation,Generation with Summarizing,7,20,3.0,0.1222,0.6791,2.8571,0.1118,0.6762,2.8571,0.0934,0.731,2.8571,0.0978,0.7324,3.9425,0.3,qwen3:8b,qwen3:8b
+reflection_generation,Self-reflection,4,20,3.0,0.1113,0.716,2.75,0.1092,0.6551,2.5,0.0716,0.6939,2.5,0.108,0.619,3.6389,0.2,qwen3:8b,qwen3:8b
+agentic,Our Agentic Pipeline,6,20,2.8333,0.2662,0.5853,2.5,0.2324,0.6414,2.5,0.2528,0.577,2.3333,0.2477,0.5425,3.173,0.15,qwen3:8b,qwen3:8b

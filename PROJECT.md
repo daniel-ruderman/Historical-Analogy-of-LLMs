@@ -664,6 +664,33 @@ sample from the averages instead of aborting the batch; such samples still count
 misses, matching the original's division by `len(dataset)`. A failed API call is never given a
 fabricated score.
 
+**Reading the model's answer — a deviation forced by chat-tuned models (2026-08-22).**
+The paper's prompts are *completion*-style: they demonstrate a layout, break off mid-pattern
+(`Historical Analogies Events:`, or the clause TWOSTAGE_CHOICE trails off in), and rely on the
+model continuing with the event name alone. GPT-4 does that. A chat-tuned local model instead
+restarts the layout and puts its answer in the slot several lines down, in markdown. Two
+consequences, both in *output handling* — **no prompt was changed**:
+
+* `stop=["\n"]` in `direct_generation`, `twostage_generation` and `summary_generation` truncated
+  the reply at its first line, which for such a model is `"==== Answer"`. The answer was never
+  generated at all. The stop is dropped; the reply now runs to completion.
+* `clean_answer` took line one. `extract_analogy_answer` (in `gemini_baselines/common.py`) now
+  reads the name from the slot the prompt itself establishes, strips markdown, and returns `""`
+  — an honest `no_analogy` — when the reply contains only scaffolding. For a bare event name,
+  the format the paper's models produce, it returns exactly what `clean_answer` returned; the
+  tests pin that equivalence.
+
+Measured on 5 popular examples with `qwen3:8b`: before, 0/5 answers were usable and Pass@1 was
+0.00; after, 5/5 were real event names and 2 were exact reference matches. Nothing was
+laundered — two of the five are genuine failures where the model parroted `Spanish flu` from
+the prompt's one-shot example, and they are still recorded as that answer. Dropping the stop
+costs wall time (~30 s per direct-generation example instead of a truncated call).
+
+This is deliberately a parsing change, not a prompt change. Rewording a prompt to demand a
+terse answer would also change *which* event the model picks — the quantity being measured —
+and no amount of testing could separate "the baseline got readable" from "the baseline got
+better". Extraction runs after the model has already committed to an answer, so it cannot.
+
 **Cost.** Judging one answer costs exactly 6 LLM calls (2 dimension summaries + 4 abstract
 similarities). Results are cached in `.hal_cache/evaluation_mds.json`, keyed by the evaluation
 model and a `PROMPT_VERSION` string, so the input event's summary is computed once and shared

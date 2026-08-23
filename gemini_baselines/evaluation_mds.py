@@ -54,6 +54,10 @@ class EvaluationContext:
     cache: Optional[Any] = None      # hal.cache.JsonCache; None disables caching
     llm_calls: int = 0
     cache_hits: int = 0
+    # How each 1-4 judgement was recovered from the judge's reply, keyed by the
+    # ``how`` of :func:`parse_abstract_score`. Auditing only -- these counts
+    # never enter the metric.
+    score_parses: Dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def build(cls, model: Optional[str] = None, verbose: bool = False,
@@ -143,24 +147,74 @@ def extract_features(event: Dict[str, Any], context: EvaluationContext,
 # --------------------------------------------------------------------------
 # Abstract similarity (LLM judge, 1-4)  /  literal similarity (Jaccard)
 # --------------------------------------------------------------------------
+class ScoreParseError(ValueError):
+    """The judge's reply carried no recoverable 1-4 score.
+
+    Raised instead of inventing a number: a dimension that cannot be judged
+    makes the whole sample unscored, and the runner reports it with a status.
+    """
+
+
+# The judge's reply is read in three steps, tried in this order. The first is
+# the original's own behaviour and the only step a bare-digit reply ever
+# reaches, so for the format ``evaluation.py`` was written against -- GPT-4
+# continuing the prompt's trailing "Score:" -- this returns exactly what the
+# original returned. The later steps matter only for chat-tuned judges that
+# wrap the digit in prose: qwen3:8b answers "**Score: 3**" followed by a
+# paragraph of reasoning, and never emits a bare digit at all.
+_SCORE_ANCHOR = re.compile(r"(?i)\bscore\b\W{0,12}(\d+)")
+_SCORE_IN_RANGE = re.compile(r"\b([1-4])\b")
+
+
+def parse_abstract_score(result: str) -> Tuple[int, str]:
+    """Recover the 1-4 judgement from a judge reply.
+
+    Returns ``(score, how)`` with ``how`` one of ``"bare"``, ``"anchored"`` or
+    ``"scan"``; raises :class:`ScoreParseError` when the reply contains no
+    score at all.
+
+    Deliberately *not* the original's ``re.search(r"\\d+", ...)``. That takes the
+    first digit run anywhere in the reply, which in a prose answer is as likely
+    to come from "Description 1" -- a phrase this very prompt teaches the model
+    to use -- or from a year as from the verdict. Anchoring on the "Score:" cue
+    first, and only then on a standalone 1-4, stops a paragraph of reasoning we
+    discard from silently deciding the metric.
+    """
+    text = (result or "").strip()
+    try:
+        return int(text), "bare"
+    except ValueError:
+        pass
+    match = _SCORE_ANCHOR.search(text)
+    if match:
+        return int(match.group(1)), "anchored"
+    match = _SCORE_IN_RANGE.search(text)
+    if match:
+        return int(match.group(1)), "scan"
+    raise ScoreParseError(f"no 1-4 score in judge reply: {text[:200]!r}")
+
+
 def abstract_similarity(text1: str, text2: str, context: EvaluationContext) -> int:
     """The paper's 1-4 abstract-similarity judgement.
 
-    Robustness difference from the original: an out-of-range score is clamped to
-    [1, 4] (the original warns but returns it), and an unparseable answer scores
-    1 instead of raising. Both keep a batch run alive without changing the
-    metric for well-formed answers.
+    Two robustness differences from the original, neither of which changes the
+    result for a well-formed bare-digit answer:
+
+    * the digit is located by :func:`parse_abstract_score` rather than by
+      "first digit anywhere in the reply";
+    * an unreadable reply raises :class:`ScoreParseError` instead of scoring 1,
+      so the sample is reported unscored rather than silently counted as a bad
+      analogy. Inventing a 1 there would both fabricate a judgement and drag
+      the average down.
+
+    An out-of-range score is still clamped to [1, 4]; the original warns and
+    returns it unclamped.
     """
     prompt = prompts.EVAL_ABSTRACT_SIMILARITY.format(text1=text1, text2=text2)
     result = context.cached("abstract_similarity", (text1, text2),
                             lambda: context.predict(prompt))
-    try:
-        score = int((result or "").strip())
-    except Exception:
-        match = re.search(r"\d+", result or "")
-        if not match:
-            return 1
-        score = int(match.group())
+    score, how = parse_abstract_score(result)
+    context.score_parses[how] = context.score_parses.get(how, 0) + 1
     if score > 4:
         print("error score")
     return max(1, min(4, score))
@@ -221,11 +275,12 @@ def score_sample_detailed(data: Dict[str, Any], context: EvaluationContext
                           ) -> Tuple[Optional[Dict[str, Any]], str]:
     """Score one output row, returning ``(row, status)``.
 
-    ``status`` is ``"ok"``, ``"no_analogy"`` (the method produced no answer) or
+    ``status`` is ``"ok"``, ``"no_analogy"`` (the method produced no answer),
     ``"unresolved_event"`` (the named event has no entry in the knowledge base,
-    which is where ``evaluation.py`` raises inside ``wiki()``). Distinguishing
-    the two lets the runner report *why* a sample was skipped instead of
-    silently dropping it.
+    which is where ``evaluation.py`` raises inside ``wiki()``) or
+    ``"unparseable_score"`` (the judge replied with nothing we can read a 1-4
+    out of). Distinguishing them lets the runner report *why* a sample was
+    skipped instead of silently dropping it -- or, worse, scoring it anyway.
     """
     analogy_name = (data.get("analogy_event") or "").strip()
     if not analogy_name:
@@ -240,10 +295,16 @@ def score_sample_detailed(data: Dict[str, Any], context: EvaluationContext
     )
     scores: Dict[str, Dict[str, float]] = {}
     for dimension in DIMENSIONS:
-        scores[dimension] = {
-            "abstract_level": abstract_similarity(
+        try:
+            abstract_level = abstract_similarity(
                 input_event[dimension], analog_event[dimension], context
-            ),
+            )
+        except ScoreParseError:
+            # One unreadable dimension makes the sample's MDS undefined: the
+            # formula sums over all four. Report it rather than guess a value.
+            return None, "unparseable_score"
+        scores[dimension] = {
+            "abstract_level": abstract_level,
             "literal_level": jacc(input_event[dimension], analog_event[dimension]),
         }
     row = dict(data)
@@ -360,6 +421,11 @@ def main() -> None:
     print(f"\nabstract score: {abstract_score}")
     print(f"literal score: {literal_score}")
     print(f"overall multi-dimensional similarity: {overall_score}")
+    if context.score_parses:
+        # A judge that stops answering with a bare digit is not an error, but it
+        # is a change worth seeing: everything but "bare" was recovered from
+        # prose. See parse_abstract_score.
+        print(f"judgement formats: {dict(sorted(context.score_parses.items()))}")
     if args.pass1:
         print(f"pass@1: {pass_1(testset, context)}")
     if args.output:

@@ -35,6 +35,7 @@ from .common import (
     event_analysis,
     four_dimension_text,
     get_candidate_details,
+    extract_analogy_answer,
     output_row,
     parse_candidate_list,
 )
@@ -145,8 +146,12 @@ def historical_analogy(event_dict: Dict[str, Any], context: BaselineContext,
         choice += "\n\nFinal Answer:"
         choice += llm_choice(event, candidate, context, thought=choice)
 
-    answer = choice[choice.find("Final Answer:") + len("Final Answer:"):].strip()
-    return answer.split("\n")[0].strip(), candidate_history
+    answer = choice[choice.find("Final Answer:") + len("Final Answer:"):]
+    # The "Final Answer:" marker is appended above, so it is always present and
+    # this method never depended on the reply's first line. Routing the tail
+    # through the shared extractor only adds markdown stripping and the
+    # scaffolding check -- for a bare event name it is a no-op.
+    return extract_analogy_answer(answer), candidate_history
 
 
 def run(event: Dict[str, Any], context: Optional[BaselineContext] = None,
