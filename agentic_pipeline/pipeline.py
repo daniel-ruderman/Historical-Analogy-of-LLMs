@@ -44,6 +44,7 @@ from hal.schemas import (
 )
 
 from .anti_analogy_agent import AntiAnalogyAgent
+from .canonical_names import canonical_title, same_event
 from .critic_agent import CriticAgent
 from .final_judge import FinalJudge
 from .final_summarizer import FinalSummarizer
@@ -225,6 +226,11 @@ class AgenticAnalogyPipeline:
         if winner_row is None:
             result.errors.append("the Final Judge returned an empty ranking")
             return result
+        winner_row = self._first_distinct(event, result)
+        if winner_row is None:
+            result.errors.append(
+                "every ranked candidate resolves to the input event itself")
+            return result
         result.analogy_event = winner_row.event_name
         result.winning_candidate = _find_candidate(candidates, winner_row.event_name)
         self._log(f"[judge] winner: {result.analogy_event}")
@@ -238,6 +244,42 @@ class AgenticAnalogyPipeline:
         return result
 
     # -- helpers ----------------------------------------------------------
+    def _first_distinct(self, event: HistoricalEvent, result: FinalAnalogyResult):
+        """Highest-ranked candidate that names a real, *different* event.
+
+        Two jobs, both about naming rather than quality, and neither of them
+        re-ranking the judge's output:
+
+        * rewrite each candidate's name to the title of the page it denotes, so
+          the answer is the event the agent meant rather than the phrase it
+          composed (see :mod:`agentic_pipeline.canonical_names`);
+        * skip any candidate that resolves to the *input event's own page*.
+          Comparing an event with itself is not an analogy, so the next-ranked
+          candidate is taken instead.
+
+        Returns ``None`` only when every candidate is the input event.
+        """
+        if self.search is None:
+            return result.ranking.winner
+        for row in result.ranking.ranking:
+            title, how = canonical_title(self.search, row.event_name)
+            if how == "unresolved":
+                # No page: leave the name alone and let the evaluator record it
+                # as unresolvable rather than silently scoring something else.
+                self._log(f"[judge] '{row.event_name}' matches no article")
+                continue
+            if how == "resolved":
+                self._log(f"[judge] '{row.event_name}' -> '{title}'")
+                row.event_name = title
+            if same_event(self.search, title, event.name):
+                self._log(f"[judge] skipping '{title}': it IS the input event")
+                result.errors.append(
+                    f"candidate '{title}' resolves to the input event; "
+                    "taking the next-ranked candidate")
+                continue
+            return row
+        return None
+
     def _select_for_review(self, candidates: Sequence[CandidateAnalogy]
                            ) -> List[CandidateAnalogy]:
         """Optionally review only the top-N candidates (saves API calls)."""

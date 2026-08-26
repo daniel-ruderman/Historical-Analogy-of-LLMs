@@ -24,12 +24,14 @@ A good analogy matches the DEEP STRUCTURE of the events, not the surface wording
 
 Bad analogies are chosen because two events share names, countries, keywords or a famous label. Avoid those.
 
+Every candidate must be a SEPARATE event from the input. Never propose the input event under another name, an episode within it, or a larger event that contains it: answering "the Great Recession" with "the 2008 financial crisis", or "the 2011 Egyptian revolution" with "the Arab Spring", is not a strong analogy but a restatement, and teaches nothing about the input.
+
 == Input event ==
 {event}
 
 == Your task ==
 Propose {n_candidates} candidate historical analogies for the input event.
-Every candidate must be a real historical event that a reference work would have an entry for. Use the search tools to check events you are not certain about, and to look for less obvious candidates beyond the first one that comes to mind.
+Every candidate must be a real historical event that a reference work would have an entry for, and you must give it the name that reference work uses -- the canonical title, not a description you compose. Write "Iran hostage crisis", not "the abduction of the American hostages in Iran"; write "Vietnam War", not "Vietnam War (1955-1975)". Use the search tools to check events you are not certain about, and to look for less obvious candidates beyond the first one that comes to mind.
 Aim for variety: different periods, regions and causal patterns, not {n_candidates} versions of the same idea.
 
 The "result" object of your finish action must be:
@@ -106,6 +108,13 @@ Your job is to find the WEAKNESSES of a proposed historical analogy. You are not
 8. Factual/evidence problems -- is the candidate described accurately? Does it exist as described?
 9. Surface-level analogy -- is the similarity mostly shared words, names, regions or a famous label?
 10. Causal differences that would make reasoning from this analogy misleading.
+11. Is it actually a DIFFERENT event? An analogy compares the input event to a SEPARATE
+    historical event. The candidate fails this test if it is the input event under another
+    name, an episode within the input event, or a larger event that contains the input
+    event. "The Great Recession" answered with "the 2008 financial crisis", or "the 2011
+    Egyptian revolution" answered with "the Arab Spring", are failures -- not perfect
+    matches. A candidate that restates the input teaches nothing about it, so score it 1
+    and recommend "replace", however well its dimensions appear to correspond.
 
 Use the search tools when you are not sure about a fact before criticising it.
 
@@ -117,6 +126,7 @@ The "result" object of your finish action must be:
   "weak_assumptions": ["<assumption>", "..."],
   "factual_problems": ["<problem>", "..."],
   "surface_level": true | false,
+  "same_event": true | false,
   "overall_score": <1-4>,
   "recommendation": "keep" | "revise" | "replace",
   "summary": "<2-3 sentences the Generate/Search agent can act on>"}}
@@ -185,6 +195,8 @@ FINAL_JUDGE = """You are the Final Judge of a historical-analogy research system
 - critiques: unresolved weaknesses;
 - counterexamples: whether similar cases diverged, and how badly that undermines the analogy;
 - robustness: whether the analogy would still be informative if the counterexamples are taken seriously.
+
+- distinctness: an analogy compares the input event to a SEPARATE historical event. A candidate that is the input event under another name, an episode within it, or a larger event containing it, is not an analogy at all -- rank it LAST, no matter how completely its dimensions appear to correspond. A candidate that restates the input teaches nothing about it.
 
 Rank ALL candidates from best to worst. Prefer an analogy that is genuinely informative about the input event over one that is merely safe or famous.
 

@@ -245,6 +245,32 @@ from the structured scores (`critic_overall × robustness`, penalised for unveri
 surface-level candidates), so a run always yields a result. That function is also available on
 its own for an ablation: *how much does the LLM judge add over the structured scores?*
 
+**Naming the winner (added 2026-08-26, `agentic_pipeline/canonical_names.py`).** The agents
+describe events; the task asks them to *name* events, and the evaluator looks the name up on
+Wikipedia. When the name is not a title, `WikipediaHelper.summary` falls back to a top-1
+search and scores the answer against whatever page it lands on, silently. On the popular run
+of 2026-08-23 that hit **8 of 20** agentic answers:
+
+| the pipeline answered | it was scored against |
+|---|---|
+| "Abduction of the British hostages in Lebanon" | **Lebanon hostage crisis** — the input event |
+| "Vietnam War (1955–1975)" | "1955 in the Vietnam War" — one year of it |
+| "The detention of Uyghur Muslims in China" | "Uyghurs" — an ethnic group |
+
+The first is the origin of index 17's MDS of 0.00: the answer was scored against itself.
+
+So before the winner is reported, its name is resolved to the title of the page it denotes
+(parenthetical dates and leading articles stripped first), and any candidate resolving to the
+*input event's own article* is skipped in favour of the next-ranked one. Replayed on the
+existing run, index 17 moves from "Abduction of the British hostages in Lebanon" (0.00) to
+**"Iran hostage crisis"** — the answer every baseline gave, scoring ~3.8.
+
+Two names for one article is the only restatement test that needs no judgement, and it is
+deliberately *not* expressed in terms of the metric's literal-similarity term: importing
+α = 0.35 into the method would be fitting the pipeline to its own scorer. Restatements that
+have their own article (answering "Great Recession" with "2008 financial crisis") are left to
+the Critic and Judge, which are now told that an analogy must be a distinct event.
+
 ### 5.7 Final Summarizer — `agentic_pipeline/final_summarizer.py`
 
 A plain LLM call that explains the winning analogy to someone who wants to *use* it: the input

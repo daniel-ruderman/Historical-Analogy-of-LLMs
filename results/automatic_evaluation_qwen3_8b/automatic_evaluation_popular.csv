@@ -5,4 +5,4 @@ direct_generation,Direct Generation,20,20,2.35,0.0996,0.5492,2.4,0.0952,0.6032,2
 twostage_generation,Two-stage Generation,20,20,3.0,0.1424,0.6117,2.9,0.1107,0.6846,3.05,0.1253,0.7121,2.7,0.1413,0.5241,3.463,0.5,qwen3:8b,qwen3:8b
 summary_generation,Generation with Summarizing,20,20,2.9,0.1197,0.6319,2.55,0.1129,0.5911,2.65,0.0952,0.6583,2.65,0.106,0.6382,3.5,0.4,qwen3:8b,qwen3:8b
 reflection_generation,Self-reflection,15,20,3.1333,0.1602,0.6395,2.7333,0.1068,0.6505,2.8667,0.1218,0.6379,3.0667,0.1531,0.5861,3.4182,0.2,qwen3:8b,qwen3:8b
-agentic,Our Agentic Pipeline,20,20,3.1,0.1482,0.6513,2.8,0.1603,0.5837,2.9,0.142,0.6519,2.75,0.1701,0.5961,3.4053,0.3,qwen3:8b,qwen3:8b
+agentic,Our Agentic Pipeline,20,20,3.0,0.1155,0.6943,2.55,0.0893,0.6601,2.55,0.0964,0.6346,2.6,0.107,0.6251,3.5266,0.2,qwen3:8b,qwen3:8b
