@@ -21,6 +21,8 @@ class ForecastRecord:
     question_id: str
     condition: str
     p_yes: float
+    source: str = ""
+    resolution_date: Optional[str] = None
     rationale: str = ""
     forecast_timestamp: str = ""
     prompt_version: str = "forecast_v1"
@@ -66,6 +68,8 @@ class ForecastRecord:
             question_id=str(data["question_id"]),
             condition=str(data["condition"]),
             p_yes=float(data["p_yes"]),
+            source=str(data.get("source") or ""),
+            resolution_date=data.get("resolution_date"),
             rationale=str(data.get("rationale") or ""),
             forecast_timestamp=str(data.get("forecast_timestamp") or ""),
             prompt_version=str(data.get("prompt_version") or "forecast_v1"),
@@ -88,6 +92,7 @@ class AnalysisPacket:
     condition: str
     packet_type: str  # deliberation | analogy | shuffled_analogy | analogy_name_only
     content: str
+    resolution_date: Optional[str] = None
     prompt_version: str = ""
     model: str = ""
     tool_calls: int = 0

@@ -1,0 +1,67 @@
+{
+  "round_date": "2026-08-16",
+  "own_resolution_set_published": false,
+  "newest_published_resolution_set": "2026-08-02_resolution_set.json",
+  "eligible_questions": 450,
+  "eligible_by_category": {
+    "market": 250,
+    "dataset": 200
+  },
+  "cross_matched_files": [
+    "2026-08-02",
+    "2026-07-19",
+    "2026-07-05",
+    "2026-06-21",
+    "2026-06-07"
+  ],
+  "note": "Cross-match uses older published resolution sets. Matching IDs often belong to recurring dataset series; this is NOT an official 2026-08-16 resolution file.",
+  "cross_match_missing": 183,
+  "cross_match_unresolved_flag": 137,
+  "cross_match_resolved_any": 130,
+  "cross_match_binary_resolved": 130,
+  "resolved_by_category": {
+    "market": 4,
+    "dataset": 126
+  },
+  "resolved_by_source": {
+    "metaculus": 2,
+    "polymarket": 2,
+    "acled": 4,
+    "dbnomics": 49,
+    "fred": 40,
+    "wikipedia": 33
+  },
+  "binary_examples": [
+    {
+      "id": "43492",
+      "source": "metaculus",
+      "resolved_to": 1.0,
+      "question": "Will a new cultivated meat product receive regulatory approval for commercial sale before July 2027?"
+    },
+    {
+      "id": "40701",
+      "source": "metaculus",
+      "resolved_to": 1.0,
+      "question": "Will an AI created song chart on the Billboard Hot 100 before 2027?"
+    },
+    {
+      "id": "0x65bbe9ee978b2e7f99596407bd92599db3600cbd19e0ef6cba303553c5cd3b84",
+      "source": "polymarket",
+      "resolved_to": 0.0,
+      "question": "Will Jannik Sinner win the 2026 Men's US Open?"
+    },
+    {
+      "id": "0xf43d99c0b796e0e5226dffa31c71c9fab943e3f79c0182c144eea93dc6b77ae2",
+      "source": "polymarket",
+      "resolved_to": 0.0,
+      "question": "Will Catalina Lauf be the Republican nominee for FL-19?"
+    }
+  ],
+  "retro_2024_07_21": {
+    "binary_resolved_eligible": 330,
+    "by_category": {
+      "market": 111,
+      "dataset": 219
+    }
+  }
+}
