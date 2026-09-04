@@ -1,0 +1,2 @@
+method,method_label,n_evaluated,n_attempted,TAbs,TLit,TAll,BAbs,BLit,BAll,PAbs,PLit,PAll,RAbs,RLit,RAll,MDS,Pass@1,generation_model,evaluation_model
+agentic,Our Agentic Pipeline,19,20,3.1579,0.1172,0.7201,2.7368,0.1179,0.6173,2.9474,0.11,0.7116,2.5789,0.1363,0.5515,3.5035,0.25,qwen3:8b,qwen3:8b

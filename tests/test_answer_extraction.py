@@ -157,3 +157,56 @@ def test_event_names_are_not_mistaken_for_scaffolding():
     # "Case Blue" starts with a template-ish word but is a real operation.
     assert extract_analogy_answer("Case Blue") == "Case Blue"
     assert extract_analogy_answer("- **Cold War**") == "Cold War"
+
+
+# --- hedged answers -------------------------------------------------------
+# qwen3 answers the Self-reflection prompt with the event name wrapped in
+# qualifications. All five strings below are verbatim from the popular run of
+# 2026-08-23, where they cost reflection_generation 5 of its 20 examples.
+HEDGED = [
+    ("Suez Crisis (with reservations) or Berlin Blockade (with reservations), "
+     "but none are ideal. A better analogy would be a nuclear standoff between "
+     "superpowers with secret diplomacy and avoidance of war.", "Suez Crisis"),
+    ("1998 U.S. embassy bombings in Africa (with the caveat that a more precise "
+     "analogy might require a similar large-scale, ideologically driven attack)",
+     "1998 U.S. embassy bombings in Africa"),
+    ("Digital Revolution (with the caveat that it is a partial analogy and a "
+     "more precise historical event would be better suited)", "Digital Revolution"),
+]
+
+
+@pytest.mark.parametrize("reply, expected", HEDGED)
+def test_a_hedged_answer_keeps_only_the_event(reply, expected):
+    assert extract_analogy_answer(reply) == expected
+
+
+def test_an_abbreviation_is_not_read_as_a_sentence_end():
+    """"1998 U.S. embassy bombings" must not be cut to "1998 U.S"."""
+    assert extract_analogy_answer("1998 U.S. embassy bombings in Africa") == \
+        "1998 U.S. embassy bombings in Africa"
+
+
+@pytest.mark.parametrize("reply", [
+    "None of the provided events are suitable analogies for space colonization.",
+    "No suitable analogy exists among the candidates.",
+    "There is no good match here.",
+    "I cannot identify a suitable analogy.",
+])
+def test_an_explicit_refusal_is_recorded_as_no_answer(reply):
+    """A refusal is an answer of "none", not a name we failed to parse.
+
+    Salvaging a name out of it would invent an answer the method never gave.
+    """
+    assert extract_analogy_answer(reply) == ""
+
+
+@pytest.mark.parametrize("title", [
+    "Cannabis Act (Canada)",
+    "Estado Novo (Portugal)",
+    "Border campaign (Irish Republican Army)",
+    "U.S. internment of Japanese Americans during World War II",
+    "1998 United States embassy bombings",
+])
+def test_real_titles_survive_the_hedge_stripping(title):
+    """Only *hedging* parentheticals are removed -- disambiguators are titles."""
+    assert extract_analogy_answer(title) == title

@@ -316,6 +316,29 @@ _TEMPLATE_LINE = re.compile(
 
 _ANSWER_PREFIXES = ("Historical Analogies Events:", "Final Answer:", "Answer:")
 
+# A chat model asked for one event name often answers with the name plus a
+# hedge: "Suez Crisis (with reservations) or Berlin Blockade, but none are
+# ideal. A better analogy would be..." The name is there; it is the hedging that
+# makes the reply unusable as a title. Everything from the first hedge marker on
+# is commentary about the answer, not the answer.
+# The lookbehind keeps "1998 U.S. embassy bombings" intact: a period after a
+# single capital is an abbreviation, not the end of a sentence.
+# The lookbehind is scoped case-SENSITIVE with (?-i:...): under the global (?i)
+# a plain [A-Z] would also match lowercase and block every sentence break.
+_HEDGE_TAIL = re.compile(
+    r"(?i)(?:,?\s+but\s|(?-i:(?<![A-Z]))\.\s|;\s|\s+or\s+|\s+though\s"
+    r"|\s+however\b|\s+although\b)")
+# A parenthetical is part of many real titles -- "Cannabis Act (Canada)",
+# "Estado Novo (Portugal)" -- so only a *hedging* one is removed.
+_HEDGE_PAREN = re.compile(
+    r"(?i)\s*\((?=[^)]*\b(?:with reservations?|caveat|partial|approximate|"
+    r"roughly|loosely|arguably|note|not ideal|imperfect)\b)[^)]*\)")
+# An explicit refusal is a real "no answer", not a name we failed to parse.
+_REFUSAL = re.compile(
+    r"(?i)^(?:none\b|no\s+(?:suitable|appropriate|single|clear|good)\b|"
+    r"there\s+(?:is|are)\s+no\b|i\s+(?:cannot|can't|am unable)\b|"
+    r"not\s+enough\b|unable\s+to\b)")
+
 
 def _tidy_line(line: str) -> str:
     """Reduce one candidate line to a bare event name.
@@ -333,7 +356,20 @@ def _tidy_line(line: str) -> str:
     for prefix in _ANSWER_PREFIXES:                 # as in clean_answer
         if line.lower().startswith(prefix.lower()):
             line = line[len(prefix):].strip()
-    return line.strip().strip(".").strip()
+    line = line.strip()
+    if _REFUSAL.match(line):
+        # "None of the provided events are suitable" is an answer of "no
+        # analogy", and is recorded as one. Salvaging a name out of it would
+        # invent an answer the method did not give.
+        return ""
+    line = _HEDGE_PAREN.sub("", line)
+    hedge = _HEDGE_TAIL.search(line)
+    if hedge:
+        line = line[:hedge.start()]
+    # A trailing ":" is deliberately kept: _first_event_line uses it to spot a
+    # lead-in sentence ("the best historical analogy is:") and skip to the next
+    # line, where the name actually is.
+    return line.strip().strip(".,;").strip()
 
 
 def _first_event_line(candidates: Sequence[str]) -> str:

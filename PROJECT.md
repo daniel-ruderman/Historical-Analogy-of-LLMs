@@ -759,6 +759,32 @@ terse answer would also change *which* event the model picks — the quantity be
 and no amount of testing could separate "the baseline got readable" from "the baseline got
 better". Extraction runs after the model has already committed to an answer, so it cannot.
 
+**Hedged answers (added 2026-09-01).** `reflection_generation` — the paper's strongest method
+— lost **5 of 20** popular examples to a related habit: qwen3 gives the event name and then
+qualifies it.
+
+| the reply | the answer in it |
+|---|---|
+| "Suez Crisis (with reservations) or Berlin Blockade …, but none are ideal." | Suez Crisis |
+| "1998 U.S. embassy bombings in Africa (with the caveat that …)" | 1998 U.S. embassy bombings in Africa |
+| "Digital Revolution (with the caveat that it is a partial analogy …)" | Digital Revolution |
+
+`_tidy_line` now truncates at the first hedge marker and removes a *hedging* parenthetical —
+only one containing "with reservations", "caveat", "partial" and the like, so real
+disambiguators (`Cannabis Act (Canada)`, `Estado Novo (Portugal)`) survive untouched. A
+period after a single capital is treated as an abbreviation, keeping "1998 U.S. embassy
+bombings" whole.
+
+Two of the five are *not* recovered, deliberately. "None of the provided events are suitable
+analogies for space colonization" is an answer of **no analogy** and is now recorded as one
+rather than as an unparseable name; and one reply is an essay containing no event name at
+all. Salvaging a name from either would invent an answer the method never gave. The fix
+recovers the three replies that contain one, and all three resolve on Wikipedia.
+
+Without this, the seven-way comparison scores the paper's strongest baseline on ~120 of 160
+general examples against the agentic method's 160 — a difference in `n` that is a parsing
+artifact, not a property of the method.
+
 **Cost.** Judging one answer costs exactly 6 LLM calls (2 dimension summaries + 4 abstract
 similarities). Results are cached in `.hal_cache/evaluation_mds.json`, keyed by the evaluation
 model and a `PROMPT_VERSION` string, so the input event's summary is computed once and shared

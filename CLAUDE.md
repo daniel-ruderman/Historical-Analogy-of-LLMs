@@ -56,7 +56,8 @@ Three strictly separate bodies of code:
 
 ## 3. Stack
 
-- Python 3.10, Windows (use `py`, not `python`). No framework — plain classes/functions.
+- Python 3.13 on the laptop (3.10 on the old desktop; both fine), Windows
+  (use `py`, not `python`). No framework — plain classes/functions.
 - `google-genai` (the current SDK: `from google import genai`), `requests`, `numpy`,
   `nltk`, `python-dotenv`, `pytest`. See `requirements_project.txt`.
 - Deliberately **no** LangChain / LangGraph / CrewAI — the agent loop is ~230 readable
@@ -94,6 +95,8 @@ agentic_pipeline/        OUR method
   anti_analogy_agent.py      agent 3 — hunts counterexamples / opposite outcomes
   final_judge.py             ranking component (NOT an agent) + heuristic fallback
   final_summarizer.py        explains the winner (plain LLM call)
+  canonical_names.py         resolves the winner to the Wikipedia title it denotes,
+                             and skips a candidate that IS the input event
   pipeline.py                the refinement loop + CLI
   react.py                   the think → search → observe loop
 
@@ -107,7 +110,7 @@ automatic_evaluation/    scores all 7 methods; contains NO method logic
 
 examples/run_all_methods.py           run methods, inspect answers
 examples/run_automatic_evaluation.py  score them with the paper's metric
-tests/                                212 tests, all offline (mock providers)
+tests/                                270 tests, all offline (mock providers)
 ```
 
 **Flow:** input event → Generate/Search agent → candidates → *[Critic + Anti-Analogy →
@@ -135,7 +138,12 @@ via git) → code fallback in `hal/config.py`.
 
 Current tracked defaults: `LLM_PROVIDER=local`, `LLM_MODEL=qwen3:8b`,
 `EMBEDDING_MODEL=gemini-embedding-001`, `REFINEMENT_ROUNDS=2`, `MAX_CANDIDATES=8`,
-`MAX_OUTPUT_TOKENS=4096`.
+`MAX_OUTPUT_TOKENS=4096`, `WIKI_REQUEST_DELAY=0.2`.
+
+`WIKI_REQUEST_DELAY` paces MediaWiki calls at ~5/s and is deliberately separate from
+`REQUEST_DELAY`, which also paces the LLM — a local Ollama needs no pacing. Raise it if you
+ever see `! wikipedia lookup failed` during a run — see *"A Wikipedia lookup that FAILS must
+never be cached"* in section 8.
 
 Per-role models (`GENERATOR_MODEL`, `CRITIC_MODEL`, `ANTI_ANALOGY_MODEL`, `JUDGE_MODEL`,
 `SUMMARIZER_MODEL`, `BASELINE_MODEL`, `EVALUATION_MODEL`) all inherit `LLM_MODEL` unless set.
@@ -149,7 +157,7 @@ The model that *produces* an analogy and the model that *judges* it are delibera
 ## 6. Commands
 
 ```bash
-py -m pytest tests -q                                            # 212 tests, no API quota
+py -m pytest tests -q                                            # 270 tests, no API quota
 py examples/run_all_methods.py --smoke                           # quick sanity check
 py examples/run_all_methods.py --dry-run                         # fake providers, no key
 py examples/run_automatic_evaluation.py --dataset popular --methods agentic --smoke
@@ -162,11 +170,43 @@ py examples/run_automatic_evaluation.py --dataset general --methods all --resume
 
 ---
 
-## 7. Current state (verified 2026-08-22)
+## 7. Current state (verified 2026-08-26)
 
-All 212 tests pass. Results committed under
-`results/automatic_evaluation_gemma_4_31b/`. Everything below was produced **and judged**
-by `gemma-4-31b-it` (the default at the time), NOT by the current `qwen3:8b` default.
+All 270 tests pass.
+
+### The current condition: `qwen3:8b`, popular (20 examples)
+
+`results/automatic_evaluation_qwen3_8b/`. Generated **and judged** by `qwen3:8b`.
+
+| method | MDS | sd | Pass@1 | scored |
+|---|---|---|---|---|
+| **agentic** | **3.53** | **0.52** | 0.20 | 20/20 |
+| summary_generation | 3.50 | 0.60 | 0.40 | 20/20 |
+| direct_retrieval | 3.49 | 0.61 | 0.45 | 20/20 |
+| twostage_generation | 3.46 | 0.99 | 0.50 | 20/20 |
+| twostage_retrieval | 3.45 | 0.78 | 0.65 | 20/20 |
+| direct_generation | 3.42 | 0.59 | 0.35 | 20/20 |
+| reflection_generation | 3.42 | 0.77 | 0.20 | 15/20 |
+
+**Read this table with the statistics, not the ordering.** The spread between first and
+last is 0.109 while the within-method sd is ~0.7: every paired comparison of agentic
+against a baseline spans zero (widest `+0.11 [-0.13, +0.35]`). At n=20 the methods are
+**indistinguishable**, and "agentic is first" is not a result. Do not claim otherwise
+without the general set.
+
+What *is* real is the variance: agentic was sd 0.997 with a 0.00 worst case before the
+2026-08-26 fixes, and is sd 0.524 with no zeroed dimensions after. That makes the general
+run more sensitive, which matters more than the 0.12 the mean moved.
+
+qwen3 judges harder than gemma (13/24 agreement on identical pairs, and it never awarded a
+4), so these numbers sit systematically below the gemma tables below. That gap is judge
+severity, not method quality — never compare across the two.
+
+### The older condition: `gemma-4-31b-it`
+
+`results/automatic_evaluation_gemma_4_31b/`, produced **and judged** by `gemma-4-31b-it`.
+Kept as a record; **not comparable** with the table above, and produced before the
+Wikipedia cache bug and the answer-parsing bugs were found.
 
 **Popular (20 examples):**
 
@@ -196,20 +236,34 @@ by `gemma-4-31b-it` (the default at the time), NOT by the current `qwen3:8b` def
 
 ## 8. Open problems
 
-1. **The agentic general run is incomplete** — only 60/160 examples attempted, 37 scored,
-   versus ~160 for the baselines. Its MDS is **not yet comparable**. Finish with:
-   `py examples/run_automatic_evaluation.py --dataset general --methods agentic --resume`
-2. **Agentic wins on MDS but loses on Pass@1** (4.11 vs 3.95, but 0.25 vs 0.60). Plausibly
+0. **n=20 cannot answer the research question.** Every method on popular is within 0.11 MDS
+   of every other, against a within-method sd of ~0.7. The general set (160) is the run that
+   decides anything. Treat any popular-set ordering as noise.
+1. **The refinement loop is nearly inert — the biggest open question.** On the 2026-08-23
+   run: the final winner was already in the round-1 candidate set in **18/20** examples, the
+   candidate set never changed at all in **8/20**, and refinement introduced the winner
+   twice (once good, once bad). Only 1 parse error, so it is *choosing* not to change — and
+   `GENERATE_REVISE` tells it to ("Do not replace a candidate merely because it was
+   criticised"). Strip the loop and the pipeline is essentially `twostage_generation`, which
+   is what the near-identical scores suggest. **The decisive experiment is `--rounds 0`**,
+   and it should be run now that the Critic finally has a criterion it can act on
+   (distinctness, added 2026-08-26) — before that it had no reason to reject anything.
+2. **The agentic general run is incomplete** — only 60/160 examples attempted, 37 scored,
+   versus ~160 for the baselines. Its MDS is **not yet comparable**. Note that was the
+   gemma condition; the general set has not been run at all under `qwen3:8b`.
+3. **Agentic scores well on MDS and poorly on Pass@1** (qwen3: 3.53 with Pass@1 0.20,
+   against twostage_retrieval's 3.45 / 0.65; the gemma run showed the same shape). Plausibly
    real: MDS rewards structural, non-literal analogies while Pass@1 rewards the canonical
-   textbook answer. Needs investigation before any claim — it is the most interesting
-   finding so far, and also the most likely to be an artifact.
-3. **Unscorable answers skew the averages.** `twostage_generation` lost 44/160 on general;
+   textbook answer — "Velvet Revolution" for the Arab Spring is arguably better than the
+   reference and scores zero. Needs investigation before any claim, and Pass@1 at n=20 has
+   error bars of roughly ±0.21.
+4. **Unscorable answers skew the averages.** `twostage_generation` lost 44/160 on general;
    `no_analogy` + `unresolved_event` + 21 errors total 187 rows in general. Methods with
    different `n` are not directly comparable.
-4. **Pass@1 is loose** — Wikipedia search sets can intersect for merely related events
+5. **Pass@1 is loose** — Wikipedia search sets can intersect for merely related events
    (e.g. "Revolutions of 1848" counted as a hit for "Revolutions of 1989"). Inherited from
    the paper's code; kept for faithfulness, but do not over-read it.
-5. **Gemma 4 is a poor fit for the agentic pipeline.** On the general set it produced
+6. **Gemma 4 is a poor fit for the agentic pipeline.** On the general set it produced
    *no answer at all* for 34 of 60 attempted examples ("no candidates were produced",
    plus 5 "unparseable model output"), aborting before the refinement loop — so the
    agentic MDS of 4.03 rests on 37 survivors and is likely survivorship-biased. It is
@@ -217,14 +271,33 @@ by `gemma-4-31b-it` (the default at the time), NOT by the current `qwen3:8b` def
    `max_output_tokens`. **This is the main driver of the planned move to local models**
    (section 9). The ReAct loop's strict one-JSON-object-per-turn contract is the likely
    friction point; whatever model replaces Gemma should be checked against it first.
-6. **Free-tier daily cap is per project per model** (quotaId
+7. **Free-tier daily cap is per project per model** (quotaId
    `GenerateRequestsPerDayPerProjectPerModel-FreeTier`). Now largely moot: generation and
    judging are local and unlimited, and only the two retrieval baselines still call the
    Gemini API, for embeddings on a separate quota. Still relevant if anyone switches a role
    back to an API model — and never mix models within one experiment.
-7. **Not implemented:** the prediction-usefulness evaluation from the presentation
+8. **Not implemented:** the prediction-usefulness evaluation from the presentation
    (forecasting with vs without analogies, Brier score on unresolved questions).
-8. Human evaluation from the paper is not replicated.
+9. Human evaluation from the paper is not replicated.
+10. **Two agentic defects were found and fixed on 2026-08-26; a third is still open.**
+    Fixed: (a) the pipeline wrote *descriptions* where the task wants Wikipedia *titles*, so
+    8/20 answers were scored against a page they did not name — one of them the input
+    event's own article, scoring 0.00; (b) no agent knew an analogy must be a *different*
+    event, so the loop drifted toward restatement. See `agentic_pipeline/canonical_names.py`
+    and PROJECT.md 5.6. Still open: the generator sometimes names things that are not
+    events at all (it answered with an ethnic group and a political party before the fix).
+11. **A Wikipedia lookup that FAILS must never be cached (fixed 2026-08-23).** The provider
+    used to store the empty result of a timed-out or throttled call, so one network blip
+    marked an event permanently nonexistent. It invalidated a whole 10-hour popular run:
+    1048 of 1171 cache entries became stored failures, and scored-example counts fell in
+    *run order* rather than by method — agentic ran last and lost 14 of 20. **Diagnostic:
+    if `n_evaluated` declines with run order, suspect caching or resource exhaustion, never
+    the methods.** Now only answers are cached; failures are counted in `failed_calls` and
+    warned about once.
+12. **Never encode the metric into the method.** The distinct-event rule is phrased as "must
+    be a distinct event" — the task definition, which the paper's own judging prompt states
+    ("[Self-analogy is bad!!!]"). Expressing it as a Jaccard threshold at alpha=0.35 would be
+    fitting the pipeline to its own scorer, and is not acceptable however much it scores.
 
 ---
 
@@ -251,8 +324,12 @@ Setup on the new machine:
 1. `py -m pip install -r requirements_project.txt`
 2. `copy .env.example .env` and add `GEMINI_API_KEY` (needed only by the two retrieval
    baselines, which use Gemini embeddings; everything else is local)
-3. `ollama pull qwen3:8b`
-4. `py -m pytest tests -q` — 212 tests, no key and no network required
+3. `ollama pull qwen3:8b` — and check `ollama --version` is **>= 0.9.0**. Older servers
+   accept the `think` parameter and silently ignore it, so `LOCAL_THINK=false` becomes a
+   no-op, qwen3 prepends a `<think>` block to every plain-text reply, and the MDS judge's
+   score parser reads a digit out of the reasoning instead of the verdict. The laptop
+   shipped with 0.6.8 and produced a 1 where the answer was 4.
+4. `py -m pytest tests -q` — 270 tests, no key and no network required
 5. **Check the tokenizer** (see below)
 
 ### The tokenizer decides part of the metric — check it on any new machine
