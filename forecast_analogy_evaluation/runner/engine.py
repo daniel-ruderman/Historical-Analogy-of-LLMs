@@ -66,6 +66,11 @@ def _question_as_event(q: BenchmarkQuestion) -> Dict[str, str]:
     }
 
 
+def _record_key(question_id: str, condition: str, resolution_date: Optional[str] = None) -> str:
+    suffix = resolution_date or "-"
+    return f"{question_id}:{suffix}:{condition}"
+
+
 def _read_completed_keys(path: Path) -> Set[str]:
     done: Set[str] = set()
     if not path.exists():
@@ -76,7 +81,11 @@ def _read_completed_keys(path: Path) -> Set[str]:
             if not line:
                 continue
             row = json.loads(line)
-            done.add(f"{row['question_id']}:{row['condition']}")
+            done.add(_record_key(
+                row["question_id"],
+                row["condition"],
+                row.get("resolution_date"),
+            ))
     return done
 
 
@@ -91,7 +100,11 @@ def _load_analysis_packets(path: Path) -> Dict[str, str]:
             if not line:
                 continue
             row = json.loads(line)
-            packets[f"{row['question_id']}:{row['condition']}"] = row.get("content", "")
+            packets[_record_key(
+                row["question_id"],
+                row["condition"],
+                row.get("resolution_date"),
+            )] = row.get("content", "")
     return packets
 
 
@@ -242,6 +255,8 @@ class EvaluationEngine:
             question_id=q.question_id,
             condition=condition,
             p_yes=p_yes if p_yes is not None else 0.5,
+            source=q.source,
+            resolution_date=q.resolution_date,
             rationale=rationale,
             forecast_timestamp=q.forecast_timestamp,
             model=self.model_name,
@@ -270,10 +285,10 @@ class EvaluationEngine:
         cache = cached_packets or {}
 
         if "historical_analogy" in arms:
-            cache_key = f"{q.question_id}:historical_analogy"
+            cache_key = _record_key(q.question_id, "historical_analogy", q.resolution_date)
             if cache_key in cache:
                 packets["historical_analogy"] = cache[cache_key]
-            elif f"{q.question_id}:historical_analogy" not in done:
+            elif cache_key not in done:
                 print(f"  [{q.question_id}] generating analogy packet...")
                 content, meta = self.generate_analogy_packet(q, smoke)
                 packets["historical_analogy"] = content
@@ -282,16 +297,17 @@ class EvaluationEngine:
                     condition="historical_analogy",
                     packet_type="analogy",
                     content=content,
+                    resolution_date=q.resolution_date,
                     model=self.model_name,
                     run_id=self.run_id,
                     metadata=meta,
                 ).to_dict())
 
         if "matched_deliberation" in arms:
-            cache_key = f"{q.question_id}:matched_deliberation"
+            cache_key = _record_key(q.question_id, "matched_deliberation", q.resolution_date)
             if cache_key in cache:
                 packets["matched_deliberation"] = cache[cache_key]
-            elif f"{q.question_id}:matched_deliberation" not in done:
+            elif cache_key not in done:
                 print(f"  [{q.question_id}] generating deliberation packet...")
                 content, meta = self.generate_deliberation_packet(q)
                 packets["matched_deliberation"] = content
@@ -300,6 +316,7 @@ class EvaluationEngine:
                     condition="matched_deliberation",
                     packet_type="deliberation",
                     content=content,
+                    resolution_date=q.resolution_date,
                     model=self.model_name,
                     run_id=self.run_id,
                     metadata=meta,
@@ -310,7 +327,7 @@ class EvaluationEngine:
             random.shuffle(order)
 
         for arm in order:
-            key = f"{q.question_id}:{arm}"
+            key = _record_key(q.question_id, arm, q.resolution_date)
             if key in done:
                 continue
             print(f"  [{q.question_id}] forecasting ({arm})...")

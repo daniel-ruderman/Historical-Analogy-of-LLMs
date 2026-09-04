@@ -1,0 +1,37 @@
+{
+  "run_id": "live_market_20260816_57579130",
+  "n_records": 234,
+  "by_condition": {
+    "historical_analogy": {
+      "n": 78,
+      "mean_p_yes": 0.48461538461538456,
+      "median_p_yes": 0.45
+    },
+    "plain": {
+      "n": 78,
+      "mean_p_yes": 0.4283333333333334,
+      "median_p_yes": 0.35
+    },
+    "matched_deliberation": {
+      "n": 78,
+      "mean_p_yes": 0.40294871794871806,
+      "median_p_yes": 0.35
+    }
+  },
+  "paired_differences": {
+    "historical_minus_plain": {
+      "n": 78,
+      "mean": 0.05628205128205129,
+      "ci_low": 0.024743589743589752,
+      "ci_high": 0.08884615384615387,
+      "p_value_sign_test_two_sided": 0.0006795482549932785
+    },
+    "historical_minus_matched_deliberation": {
+      "n": 78,
+      "mean": 0.0816666666666667,
+      "ci_low": 0.04833333333333334,
+      "ci_high": 0.11538461538461539,
+      "p_value_sign_test_two_sided": 2.098677427397888e-07
+    }
+  }
+}

@@ -44,6 +44,21 @@ def main(argv: list[str] | None = None) -> int:
                         help="Skip generation; only run aggregate analysis")
     parser.add_argument("--arms", nargs="*", default=None,
                         help="Override arms (default: main arms from config)")
+    parser.add_argument(
+        "--source-categories",
+        nargs="+",
+        choices=["market", "dataset"],
+        default=None,
+        help="Restrict to these source categories (default: both)",
+    )
+    parser.add_argument(
+        "--dataset-question-limit",
+        type=int,
+        default=None,
+        help="If set with dataset category, sample at most this many dataset questions",
+    )
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Override sampling seed")
     args = parser.parse_args(argv)
 
     config_path = ROOT / args.config
@@ -66,28 +81,65 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Config: {config_path}")
     print(f"Round:  {args.round_date}")
     print(f"Smoke:  {args.smoke}  Dry-run: {args.dry_run}  Limit: {limit}")
+    print(f"Categories: {args.source_categories or ['market', 'dataset']}")
 
     raw_dir = ROOT / "data" / "raw" / "forecastbench"
     questions_raw, resolutions = load_round(args.round_date, raw_dir)
     eligible = build_eligible_questions(questions_raw, resolutions, args.round_date)
     print(f"Eligible binary questions in round: {len(eligible)}")
 
+    if args.source_categories:
+        want = set(args.source_categories)
+        eligible = [q for q in eligible if q.source_category in want]
+        print(f"After category filter: {len(eligible)}")
+
     sampling = config["benchmark"].get("sampling", {})
-    if limit is not None:
+    seed = args.seed if args.seed is not None else sampling.get("seed", 42)
+
+    if (
+        args.dataset_question_limit is not None
+        and args.source_categories == ["dataset"]
+        and limit is None
+    ):
         sampled = sample_questions(
             eligible,
             mode="stratified_sample",
-            n_questions=limit,
-            strata={"market": limit // 2 + limit % 2, "dataset": limit // 2},
-            seed=sampling.get("seed", 42),
+            n_questions=args.dataset_question_limit,
+            strata={"dataset": args.dataset_question_limit},
+            seed=seed,
         )
+    elif args.source_categories == ["market"] and limit is None:
+        sampled = sample_questions(
+            eligible,
+            mode="full_round",
+            n_questions=len(eligible),
+            seed=seed,
+        )
+    elif limit is not None:
+        if args.source_categories and len(args.source_categories) == 1:
+            cat = args.source_categories[0]
+            sampled = sample_questions(
+                eligible,
+                mode="stratified_sample",
+                n_questions=limit,
+                strata={cat: limit},
+                seed=seed,
+            )
+        else:
+            sampled = sample_questions(
+                eligible,
+                mode="stratified_sample",
+                n_questions=limit,
+                strata={"market": limit // 2 + limit % 2, "dataset": limit // 2},
+                seed=seed,
+            )
     else:
         sampled = sample_questions(
             eligible,
             mode=sampling.get("mode", "stratified_sample"),
             n_questions=int(sampling.get("n_questions", 100)),
             strata=sampling.get("strata"),
-            seed=sampling.get("seed", 42),
+            seed=seed,
         )
     print(f"Selected {len(sampled)} questions")
 

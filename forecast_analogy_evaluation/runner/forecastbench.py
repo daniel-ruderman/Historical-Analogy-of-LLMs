@@ -7,7 +7,7 @@ import random
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 MARKET_SOURCES = frozenset({"manifold", "metaculus", "kalshi", "polymarket"})
 DATASET_SOURCES = frozenset({"acled", "fred", "wikipedia", "yahoo", "dbnomics", "ecb"})
@@ -24,11 +24,12 @@ class BenchmarkQuestion:
     background: str
     resolution_criteria: str
     forecast_timestamp: str
-    outcome: int
+    outcome: Optional[int]
     source: str
     source_category: str  # market | dataset
     round_id: str
     cluster_id: str
+    resolution_date: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -42,6 +43,7 @@ class BenchmarkQuestion:
             "source_category": self.source_category,
             "round_id": self.round_id,
             "cluster_id": self.cluster_id,
+            "resolution_date": self.resolution_date,
         }
 
 
@@ -89,6 +91,15 @@ def load_round(
     return questions, resolutions
 
 
+def load_live_round(round_date: str, raw_dir: Path) -> dict[str, Any]:
+    """Return the unresolved question set for a live ForecastBench round."""
+    q_name = f"{round_date}-llm.json"
+    q_path = raw_dir / "question_sets" / q_name
+    _download(f"{BASE_URL}/datasets/question_sets/{q_name}", q_path)
+    with q_path.open(encoding="utf-8") as f:
+        return json.load(f)
+
+
 def _is_binary_resolved(res: dict) -> bool:
     if not res or not res.get("resolved"):
         return False
@@ -110,6 +121,22 @@ def _source_category(source: str) -> str:
     if source in DATASET_SOURCES:
         return "dataset"
     return "other"
+
+
+def _forecast_timestamp(round_id: str) -> str:
+    return f"{round_id}T00:00:00Z"
+
+
+def _render_live_question_text(
+    template: str,
+    *,
+    forecast_due_date: str,
+    resolution_date: Optional[str],
+) -> str:
+    rendered = template.replace("{forecast_due_date}", forecast_due_date)
+    if resolution_date is not None:
+        rendered = rendered.replace("{resolution_date}", resolution_date)
+    return rendered
 
 
 def build_eligible_questions(
@@ -152,6 +179,70 @@ def build_eligible_questions(
             cluster_id=cluster,
         ))
     return eligible
+
+
+def build_live_questions(question_set: dict[str, Any]) -> List[BenchmarkQuestion]:
+    """Expand a live question set into forecastable items.
+
+    Market questions yield one item with ``resolution_date=None``.
+    Dataset questions yield one item per listed resolution date.
+    """
+    round_id = str(question_set.get("forecast_due_date") or "")
+    forecast_ts = _forecast_timestamp(round_id)
+    items: List[BenchmarkQuestion] = []
+
+    for q in question_set.get("questions", []):
+        qid = q.get("id")
+        if not isinstance(qid, str) or not qid:
+            continue
+        if q.get("combination_of") not in (None, "N/A"):
+            continue
+        source = str(q.get("source") or "")
+        category = _source_category(source)
+        if category == "other":
+            continue
+
+        base_kwargs = dict(
+            question_id=qid,
+            background=str(q.get("background") or q.get("source_intro") or ""),
+            resolution_criteria=str(q.get("resolution_criteria") or ""),
+            forecast_timestamp=forecast_ts,
+            outcome=None,
+            source=source,
+            source_category=category,
+            round_id=round_id,
+            cluster_id=qid,
+        )
+
+        raw_question = str(q.get("question") or "")
+        if category == "market":
+            items.append(BenchmarkQuestion(
+                question=_render_live_question_text(
+                    raw_question,
+                    forecast_due_date=round_id,
+                    resolution_date=None,
+                ),
+                resolution_date=None,
+                **base_kwargs,
+            ))
+            continue
+
+        resolution_dates = q.get("resolution_dates")
+        if not isinstance(resolution_dates, list):
+            continue
+        for resolution_date in resolution_dates:
+            if not isinstance(resolution_date, str) or not resolution_date:
+                continue
+            items.append(BenchmarkQuestion(
+                question=_render_live_question_text(
+                    raw_question,
+                    forecast_due_date=round_id,
+                    resolution_date=resolution_date,
+                ),
+                resolution_date=resolution_date,
+                **base_kwargs,
+            ))
+    return items
 
 
 def sample_questions(

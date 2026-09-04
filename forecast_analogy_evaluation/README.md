@@ -47,6 +47,33 @@ sbatch scripts/run_retrospective_pilot.sbatch pilot 20
 
 Read [`docs/README.md`](docs/README.md) for the full documentation index.
 
+## Live ForecastBench submission
+
+Generate the three ForecastBench upload files for a live round:
+
+```bash
+cd forecast_analogy_evaluation
+python generate_forecastbench_submission.py \
+  --config configs/prospective_forecastbench.yaml \
+  --round-date 2026-08-30 \
+  --organization "YOUR_ORG" \
+  --model-organization "YOUR_ORG"
+```
+
+This writes raw artifacts under `runs/<run_id>/` and three upload files under
+`runs/<run_id>/submissions/` named like:
+
+- `2026-08-30.YOUR_ORG.1.json` → `plain`
+- `2026-08-30.YOUR_ORG.2.json` → `matched_deliberation`
+- `2026-08-30.YOUR_ORG.3.json` → `historical_analogy`
+
+Useful flags:
+
+- `--dry-run` for a schema rehearsal without Ollama/GPU
+- `--limit N` for a small rehearsal instead of the full round
+- `--include-reasoning` to include rationales in the upload files
+- `--resume` to continue an interrupted live generation run
+
 ## Relationship to the analogy pipeline
 
 Analogy generation uses the parent repo's
@@ -67,5 +94,6 @@ only**, not forecast endpoints.
 | Protocol & documentation | Ready |
 | Runner & analysis code | Ready |
 | Smoke test (2 questions) | Complete — `runs/pilot_smoke_57457642/` |
-| 20-question pilot | Running — `runs/pilot_pilot_57471686/` |
+| 20-question pilot | Complete — `runs/pilot_pilot_57480457/` |
+| Live ForecastBench submission generator | Ready |
 | Live ForecastBench rounds | Not started |

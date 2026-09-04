@@ -1,0 +1,40 @@
+{
+  "run_id": "live_dataset_sample_20260816_57579131",
+  "n_scored_records": 30,
+  "n_questions_primary": 5,
+  "by_condition": {
+    "plain": {
+      "n": 10,
+      "mean_brier": 0.27049999999999996,
+      "median_brier": 0.30250000000000005
+    },
+    "matched_deliberation": {
+      "n": 10,
+      "mean_brier": 0.27129000000000003,
+      "median_brier": 0.27040000000000003
+    },
+    "historical_analogy": {
+      "n": 10,
+      "mean_brier": 0.3025,
+      "median_brier": 0.42250000000000004
+    }
+  },
+  "paired_brier_differences": {
+    "historical_minus_plain": {
+      "n": 5,
+      "mean": 0.012000000000000005,
+      "ci_low": -0.043999999999999984,
+      "ci_high": 0.072,
+      "p_value_sign_test_two_sided": 1.0,
+      "note": "Negative mean favors historical_analogy"
+    },
+    "historical_minus_matched_deliberation": {
+      "n": 5,
+      "mean": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "p_value_sign_test_two_sided": 1.0,
+      "note": "Negative mean favors historical_analogy"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "run_id": "live_dataset_sample_20260816_57579131",
+  "n_records": 138,
+  "by_condition": {
+    "plain": {
+      "n": 46,
+      "mean_p_yes": 0.5021739130434781,
+      "median_p_yes": 0.65
+    },
+    "matched_deliberation": {
+      "n": 46,
+      "mean_p_yes": 0.42478260869565215,
+      "median_p_yes": 0.45
+    },
+    "historical_analogy": {
+      "n": 46,
+      "mean_p_yes": 0.5434782608695652,
+      "median_p_yes": 0.65
+    }
+  },
+  "paired_differences": {
+    "historical_minus_plain": {
+      "n": 46,
+      "mean": 0.041304347826086975,
+      "ci_low": 0.008695652173913044,
+      "ci_high": 0.07608695652173914,
+      "p_value_sign_test_two_sided": 0.0192108154296875
+    },
+    "historical_minus_matched_deliberation": {
+      "n": 46,
+      "mean": 0.11869565217391305,
+      "ci_low": 0.07282608695652174,
+      "ci_high": 0.16804347826086957,
+      "p_value_sign_test_two_sided": 2.744048833847046e-05
+    }
+  }
+}
